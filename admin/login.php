@@ -172,7 +172,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <form method="POST" action="">
             <div class="form-group">
                 <label>Email</label>
-                <input type="email" name="email" required autofocus>
+                <input type="email" name="email" placeholder="Masukkan Email" required autofocus>
             </div>
             
             <div class="form-group">
