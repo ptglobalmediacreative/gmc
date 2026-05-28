@@ -280,12 +280,6 @@ $total_project_aktif = 0;
             </div>
         </div>
 
-        <!-- Welcome Card -->
-        <div class="welcome-card">
-            <h3>Selamat Datang di Dashboard Global Media Creative</h3>
-            <p>Anda login sebagai <strong><?php echo htmlspecialchars($_SESSION['role']); ?></strong> | <?php echo date('l, d F Y'); ?></p>
-            <p style="margin-top: 10px;">Kelola client, project, dan staff anda dengan mudah di sini.</p>
-        </div>
     </div>
 </body>
 </html>
