@@ -636,7 +636,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     <input type="date" name="end_date">
                 </div>
                 <div class="form-group">
-                    <label>sales (Person In Charge)</label>
+                    <label>Sales (Person In Charge)</label>
                     <select name="sales" required>
                         <option value="">-- Pilih Sales --</option>
                         <?php foreach ($staff_list as $staff): ?>
