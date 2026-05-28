@@ -25,13 +25,21 @@ $create_table = "CREATE TABLE IF NOT EXISTS projects (
     client_name VARCHAR(255) NOT NULL,
     start_date DATE,
     end_date DATE,
-    sales DECIMAL(15,2),
+    pic VARCHAR(255),
     status ENUM('Planning', 'In Progress', 'Completed', 'On Hold') DEFAULT 'Planning',
     created_by INT(11),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )";
 
 mysqli_query($conn, $create_table);
+
+// Ambil semua staff untuk pilihan PIC
+$staff_query = "SELECT id, name, role FROM users ORDER BY name ASC";
+$staff_result = mysqli_query($conn, $staff_query);
+$staff_list = [];
+while ($staff = mysqli_fetch_assoc($staff_result)) {
+    $staff_list[] = $staff;
+}
 
 // Pagination
 $limit = 10;
@@ -45,7 +53,7 @@ $status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET
 // Query untuk mengambil data project
 $where = "";
 if (!empty($search)) {
-    $where .= " WHERE (kode LIKE '%$search%' OR client_name LIKE '%$search%')";
+    $where .= " WHERE (kode LIKE '%$search%' OR client_name LIKE '%$search%' OR pic LIKE '%$search%')";
 }
 if (!empty($status_filter)) {
     $where .= (empty($where) ? " WHERE" : " AND") . " status = '$status_filter'";
@@ -71,12 +79,12 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             $client_name = mysqli_real_escape_string($conn, $_POST['client_name']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $end_date = mysqli_real_escape_string($conn, $_POST['end_date']);
-            $sales = mysqli_real_escape_string($conn, $_POST['sales']);
+            $pic = mysqli_real_escape_string($conn, $_POST['pic']);
             $status = mysqli_real_escape_string($conn, $_POST['status']);
             $created_by = $_SESSION['user_id'];
             
-            $insert = "INSERT INTO projects (kode, client_name, start_date, end_date, sales, status, created_by) 
-                       VALUES ('$kode', '$client_name', '$start_date', '$end_date', '$sales', '$status', '$created_by')";
+            $insert = "INSERT INTO projects (kode, client_name, start_date, end_date, pic, status, created_by) 
+                       VALUES ('$kode', '$client_name', '$start_date', '$end_date', '$pic', '$status', '$created_by')";
             if (mysqli_query($conn, $insert)) {
                 $success = "Project berhasil ditambahkan!";
                 echo "<script>window.location.href='project.php';</script>";
@@ -91,7 +99,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             $client_name = mysqli_real_escape_string($conn, $_POST['client_name']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $end_date = mysqli_real_escape_string($conn, $_POST['end_date']);
-            $sales = mysqli_real_escape_string($conn, $_POST['sales']);
+            $pic = mysqli_real_escape_string($conn, $_POST['pic']);
             $status = mysqli_real_escape_string($conn, $_POST['status']);
             
             $update = "UPDATE projects SET 
@@ -99,7 +107,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                        client_name='$client_name', 
                        start_date='$start_date', 
                        end_date='$end_date', 
-                       sales='$sales', 
+                       pic='$pic', 
                        status='$status' 
                        WHERE id=$id";
             
@@ -510,7 +518,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
             <div class="filter-box">
                 <form method="GET" action="" class="search-box">
-                    <input type="text" name="search" placeholder="Cari kode/client..." value="<?php echo htmlspecialchars($search); ?>">
+                    <input type="text" name="search" placeholder="Cari kode/client/PIC..." value="<?php echo htmlspecialchars($search); ?>">
                     <button type="submit"><i class="fas fa-search"></i> Cari</button>
                 </form>
                 <select onchange="location.href='?status='+this.value+'&search=<?php echo urlencode($search); ?>'">
@@ -535,7 +543,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                         <th>Client</th>
                         <th>Start Date</th>
                         <th>End Date</th>
-                        <th>Sales</th>
+                        <th>PIC</th>
                         <th>Status</th>
                         <?php if ($user_role == 'Director'): ?>
                             <th>Aksi</th>
@@ -551,8 +559,8 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <td><strong><?php echo htmlspecialchars($row['kode']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($row['client_name']); ?></td>
                                 <td><?php echo $row['start_date'] ? date('d M Y', strtotime($row['start_date'])) : '-'; ?></td>
-                                <td><?php echo $row['end_date'] ? date('d M Y', strtotime($row['end_date'])) : '-'; ?></td>
-                                <td>Rp <?php echo number_format($row['sales'], 0, ',', '.'); ?></td>
+                                <td><?php echo $row['end_date'] ? date('d M Y', strtotime($row['end_date'])) : '-'; ?></td
+                                <td><?php echo htmlspecialchars($row['pic']); ?></td
                                 <td>
                                     <span class="status-badge status-<?php echo str_replace(' ', '', $row['status']); ?>">
                                         <?php echo $row['status']; ?>
@@ -628,8 +636,15 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     <input type="date" name="end_date">
                 </div>
                 <div class="form-group">
-                    <label>Sales</label>
-                    <input type="number" name="sales" step="1000000" placeholder="Masukkan nominal sales">
+                    <label>PIC (Person In Charge)</label>
+                    <select name="pic" required>
+                        <option value="">-- Pilih PIC --</option>
+                        <?php foreach ($staff_list as $staff): ?>
+                            <option value="<?php echo htmlspecialchars($staff['name']); ?>">
+                                <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Status</label>
@@ -672,8 +687,15 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     <input type="date" name="end_date" id="edit_end_date">
                 </div>
                 <div class="form-group">
-                    <label>Sales / Nilai Project</label>
-                    <input type="number" name="sales" id="edit_sales" step="1000000">
+                    <label>PIC (Person In Charge)</label>
+                    <select name="pic" id="edit_pic" required>
+                        <option value="">-- Pilih PIC --</option>
+                        <?php foreach ($staff_list as $staff): ?>
+                            <option value="<?php echo htmlspecialchars($staff['name']); ?>">
+                                <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Status</label>
@@ -718,7 +740,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         function openEditModal(id) {
-            fetch(`get_project.php?id=${id}`)
+            fetch(`api/get_project.php?id=${id}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
@@ -726,7 +748,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     document.getElementById('edit_client_name').value = data.client_name;
                     document.getElementById('edit_start_date').value = data.start_date;
                     document.getElementById('edit_end_date').value = data.end_date;
-                    document.getElementById('edit_sales').value = data.sales;
+                    document.getElementById('edit_pic').value = data.pic;
                     document.getElementById('edit_status').value = data.status;
                     document.getElementById('editModal').classList.add('show');
                 });
