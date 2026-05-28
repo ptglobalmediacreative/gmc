@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 require_once "config.php";
 session_start();
 
@@ -17,12 +19,19 @@ $user = mysqli_fetch_assoc($result_user);
 // Ambil statistik sederhana
 $query_projects = "SELECT COUNT(*) as total FROM projects";
 $result_projects = mysqli_query($conn, $query_projects);
-$total_projects = mysqli_fetch_assoc($result_projects)['total'];
+if ($result_projects) {
+    $total_projects = mysqli_fetch_assoc($result_projects)['total'];
+} else {
+    $total_projects = 0;
+}
 
 $query_users = "SELECT COUNT(*) as total FROM users";
 $result_users = mysqli_query($conn, $query_users);
-$total_users = mysqli_fetch_assoc($result_users)['total'];
-?>
+if ($result_users) {
+    $total_users = mysqli_fetch_assoc($result_users)['total'];
+} else {
+    $total_users = 0;
+}
 
 <!DOCTYPE html>
 <html lang="id">
