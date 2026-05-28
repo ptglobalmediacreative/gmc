@@ -529,7 +529,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
             <div class="filter-box">
                 <form method="GET" action="" class="search-box">
-                    <input type="text" name="search" placeholder="Cari kode/client/sales..." value="<?php echo htmlspecialchars($search); ?>">
+                    <input type="text" name="search" placeholder="Cari Kode/Client/Sales..." value="<?php echo htmlspecialchars($search); ?>">
                     <button type="submit"><i class="fas fa-search"></i> Cari</button>
                 </form>
                 <select onchange="location.href='?status='+this.value+'&search=<?php echo urlencode($search); ?>'">
