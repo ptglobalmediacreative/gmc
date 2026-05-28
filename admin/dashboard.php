@@ -72,6 +72,53 @@ $tasks = [
         'assigned_to' => 'Tim IT'
     ]
 ];
+
+// Data notifikasi sementara
+$notifications = [
+    [
+        'id' => 1,
+        'title' => 'Task Baru',
+        'message' => 'Briefing Project Website telah ditambahkan',
+        'time' => '5 menit lalu',
+        'icon' => 'fas fa-tasks',
+        'color' => '#1e3c72',
+        'is_read' => false
+    ],
+    [
+        'id' => 2,
+        'title' => 'Deadline Mendekat',
+        'message' => 'Task "Desain Logo Branding" deadline 2 hari lagi',
+        'time' => '1 jam lalu',
+        'icon' => 'fas fa-clock',
+        'color' => '#f5365c',
+        'is_read' => false
+    ],
+    [
+        'id' => 3,
+        'title' => 'Task Completed',
+        'message' => 'Task "Konten Instagram Campaign" telah selesai',
+        'time' => '3 jam lalu',
+        'icon' => 'fas fa-check-circle',
+        'color' => '#2dce89',
+        'is_read' => true
+    ],
+    [
+        'id' => 4,
+        'title' => 'Staff Baru',
+        'message' => 'Tim Desain telah menambahkan member baru',
+        'time' => 'kemarin',
+        'icon' => 'fas fa-user-plus',
+        'color' => '#11cdef',
+        'is_read' => true
+    ]
+];
+
+$unread_count = 0;
+foreach ($notifications as $notif) {
+    if (!$notif['is_read']) {
+        $unread_count++;
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -175,11 +222,154 @@ $tasks = [
         .user-info {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 20px;
         }
 
-        .user-info span {
+        /* ========== NOTIFICATION ========== */
+        .notification-container {
+            position: relative;
+        }
+
+        .notification-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
             color: #525f7f;
+            cursor: pointer;
+            position: relative;
+            padding: 8px;
+            border-radius: 50%;
+            transition: background 0.3s;
+        }
+
+        .notification-btn:hover {
+            background: #f0f4f8;
+            color: #1e3c72;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #f5365c;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 50%;
+            font-weight: bold;
+        }
+
+        .notification-dropdown {
+            position: absolute;
+            top: 45px;
+            right: 0;
+            width: 350px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+        }
+
+        .notification-dropdown.show {
+            display: block;
+        }
+
+        .notification-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eef2f7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notification-header h4 {
+            font-size: 16px;
+            color: #1e3c72;
+        }
+
+        .notification-header a {
+            font-size: 12px;
+            color: #1e3c72;
+            text-decoration: none;
+        }
+
+        .notification-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .notification-item {
+            display: flex;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eef2f7;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .notification-item:hover {
+            background: #f8f9fa;
+        }
+
+        .notification-item.unread {
+            background: #f0f4f8;
+        }
+
+        .notification-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+        }
+
+        .notification-icon i {
+            font-size: 18px;
+            color: white;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 4px;
+        }
+
+        .notification-message {
+            font-size: 12px;
+            color: #8898aa;
+            margin-bottom: 4px;
+        }
+
+        .notification-time {
+            font-size: 11px;
+            color: #c0c5d0;
+        }
+
+        .notification-footer {
+            padding: 12px 20px;
+            text-align: center;
+            border-top: 1px solid #eef2f7;
+        }
+
+        .notification-footer a {
+            font-size: 13px;
+            color: #1e3c72;
+            text-decoration: none;
+        }
+
+        .role-badge {
+            background: #17a2b8;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
         }
 
         .logout-btn {
@@ -189,6 +379,11 @@ $tasks = [
             text-decoration: none;
             border-radius: 5px;
             font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
         }
 
         /* Stats Cards - 3 cards */
@@ -230,14 +425,6 @@ $tasks = [
             font-size: 32px;
             font-weight: bold;
             color: #1e3c72;
-        }
-
-        .role-badge {
-            background: #17a2b8;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 12px;
         }
 
         /* ========== TASK SCHEDULE ========== */
@@ -443,6 +630,39 @@ $tasks = [
         <div class="top-header">
             <h1>Dashboard</h1>
             <div class="user-info">
+                <!-- NOTIFICATION MENU -->
+                <div class="notification-container">
+                    <button class="notification-btn" onclick="toggleNotification()">
+                        <i class="fas fa-bell"></i>
+                        <?php if ($unread_count > 0): ?>
+                            <span class="notification-badge"><?php echo $unread_count; ?></span>
+                        <?php endif; ?>
+                    </button>
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <h4>Notifikasi</h4>
+                            <a href="#">Tandai semua sudah dibaca</a>
+                        </div>
+                        <div class="notification-list">
+                            <?php foreach ($notifications as $notif): ?>
+                                <div class="notification-item <?php echo !$notif['is_read'] ? 'unread' : ''; ?>">
+                                    <div class="notification-icon" style="background: <?php echo $notif['color']; ?>;">
+                                        <i class="<?php echo $notif['icon']; ?>"></i>
+                                    </div>
+                                    <div class="notification-content">
+                                        <div class="notification-title"><?php echo $notif['title']; ?></div>
+                                        <div class="notification-message"><?php echo $notif['message']; ?></div>
+                                        <div class="notification-time"><?php echo $notif['time']; ?></div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="notification-footer">
+                            <a href="#">Lihat semua notifikasi</a>
+                        </div>
+                    </div>
+                </div>
+                
                 <span>Halo, <?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
                 <span class="role-badge"><?php echo htmlspecialchars($_SESSION['role']); ?></span>
                 <a href="logout.php" class="logout-btn">Logout</a>
@@ -529,5 +749,22 @@ $tasks = [
             </div>
         </div>
     </div>
+
+    <script>
+        function toggleNotification() {
+            const dropdown = document.getElementById('notificationDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Tutup dropdown saat klik di luar
+        document.addEventListener('click', function(event) {
+            const container = document.querySelector('.notification-container');
+            const dropdown = document.getElementById('notificationDropdown');
+            
+            if (container && !container.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+    </script>
 </body>
 </html>
