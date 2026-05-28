@@ -507,11 +507,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <thead>
                     <tr>
                         <th>No</th>
-                        <th>Username</th>
-                        <th>Nama Lengkap</th>
+                        <th>Name</th>
                         <th>Email</th>
+                        <th>Phone</th>
                         <th>Role</th>
-                        <th>Tanggal Bergabung</th>
+                        <th>Join Date</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
