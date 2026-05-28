@@ -757,7 +757,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         function openEditModal(id) {
-            fetch(`get_project.php?id=${id}`)
+            fetch(`api/get_project.php?id=${id}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
