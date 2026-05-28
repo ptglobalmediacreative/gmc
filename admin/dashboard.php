@@ -700,7 +700,6 @@ foreach ($notifications as $notif) {
                             <th>Priority</th>
                             <th>Status</th>
                             <th>Assigned To</th>
-                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -725,11 +724,6 @@ foreach ($notifications as $notif) {
                                         </span>
                                     </td>
                                     <td><?php echo $task['assigned_to']; ?></td>
-                                    <td class="task-actions">
-                                        <i class="fas fa-edit" title="Edit"></i>
-                                        <i class="fas fa-check-circle" title="Complete" style="color: #2dce89;"></i>
-                                        <i class="fas fa-trash-alt" title="Delete" style="color: #f5365c;"></i>
-                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
