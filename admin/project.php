@@ -12,6 +12,8 @@ if (!isset($_SESSION['user_id'])) {
 
 // Ambil data user yang login
 $user_id = $_SESSION['user_id'];
+$user_role = $_SESSION['role'];
+
 $query_user = "SELECT * FROM users WHERE id = '$user_id'";
 $result_user = mysqli_query($conn, $query_user);
 $user = mysqli_fetch_assoc($result_user);
@@ -19,15 +21,12 @@ $user = mysqli_fetch_assoc($result_user);
 // Buat tabel projects jika belum ada
 $create_table = "CREATE TABLE IF NOT EXISTS projects (
     id INT(11) AUTO_INCREMENT PRIMARY KEY,
-    project_name VARCHAR(255) NOT NULL,
+    kode VARCHAR(50) NOT NULL UNIQUE,
     client_name VARCHAR(255) NOT NULL,
-    description TEXT,
     start_date DATE,
     end_date DATE,
-    budget DECIMAL(15,2),
+    sales DECIMAL(15,2),
     status ENUM('Planning', 'In Progress', 'Review', 'Completed', 'On Hold') DEFAULT 'Planning',
-    priority ENUM('Low', 'Medium', 'High', 'Urgent') DEFAULT 'Medium',
-    assigned_to VARCHAR(255),
     created_by INT(11),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )";
@@ -42,18 +41,14 @@ $offset = ($page - 1) * $limit;
 // Search & Filter
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 $status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET['status']) : '';
-$priority_filter = isset($_GET['priority']) ? mysqli_real_escape_string($conn, $_GET['priority']) : '';
 
 // Query untuk mengambil data project
 $where = "";
 if (!empty($search)) {
-    $where .= " WHERE (project_name LIKE '%$search%' OR client_name LIKE '%$search%' OR description LIKE '%$search%')";
+    $where .= " WHERE (kode LIKE '%$search%' OR client_name LIKE '%$search%')";
 }
 if (!empty($status_filter)) {
     $where .= (empty($where) ? " WHERE" : " AND") . " status = '$status_filter'";
-}
-if (!empty($priority_filter)) {
-    $where .= (empty($where) ? " WHERE" : " AND") . " priority = '$priority_filter'";
 }
 
 $query = "SELECT * FROM projects $where ORDER BY created_at DESC LIMIT $offset, $limit";
@@ -66,25 +61,22 @@ $total_row = mysqli_fetch_assoc($total_result);
 $total_data = $total_row['total'];
 $total_pages = ceil($total_data / $limit);
 
-// Proses tambah/edit/hapus project
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+// Proses tambah/edit/hapus project (hanya Director yang bisa)
+if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         $action = $_POST['action'];
         
         if ($action == 'add') {
-            $project_name = mysqli_real_escape_string($conn, $_POST['project_name']);
+            $kode = mysqli_real_escape_string($conn, $_POST['kode']);
             $client_name = mysqli_real_escape_string($conn, $_POST['client_name']);
-            $description = mysqli_real_escape_string($conn, $_POST['description']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $end_date = mysqli_real_escape_string($conn, $_POST['end_date']);
-            $budget = mysqli_real_escape_string($conn, $_POST['budget']);
+            $sales = mysqli_real_escape_string($conn, $_POST['sales']);
             $status = mysqli_real_escape_string($conn, $_POST['status']);
-            $priority = mysqli_real_escape_string($conn, $_POST['priority']);
-            $assigned_to = mysqli_real_escape_string($conn, $_POST['assigned_to']);
             $created_by = $_SESSION['user_id'];
             
-            $insert = "INSERT INTO projects (project_name, client_name, description, start_date, end_date, budget, status, priority, assigned_to, created_by) 
-                       VALUES ('$project_name', '$client_name', '$description', '$start_date', '$end_date', '$budget', '$status', '$priority', '$assigned_to', '$created_by')";
+            $insert = "INSERT INTO projects (kode, client_name, start_date, end_date, sales, status, created_by) 
+                       VALUES ('$kode', '$client_name', '$start_date', '$end_date', '$sales', '$status', '$created_by')";
             if (mysqli_query($conn, $insert)) {
                 $success = "Project berhasil ditambahkan!";
                 echo "<script>window.location.href='project.php';</script>";
@@ -95,26 +87,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         elseif ($action == 'edit') {
             $id = (int)$_POST['id'];
-            $project_name = mysqli_real_escape_string($conn, $_POST['project_name']);
+            $kode = mysqli_real_escape_string($conn, $_POST['kode']);
             $client_name = mysqli_real_escape_string($conn, $_POST['client_name']);
-            $description = mysqli_real_escape_string($conn, $_POST['description']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $end_date = mysqli_real_escape_string($conn, $_POST['end_date']);
-            $budget = mysqli_real_escape_string($conn, $_POST['budget']);
+            $sales = mysqli_real_escape_string($conn, $_POST['sales']);
             $status = mysqli_real_escape_string($conn, $_POST['status']);
-            $priority = mysqli_real_escape_string($conn, $_POST['priority']);
-            $assigned_to = mysqli_real_escape_string($conn, $_POST['assigned_to']);
             
             $update = "UPDATE projects SET 
-                       project_name='$project_name', 
+                       kode='$kode', 
                        client_name='$client_name', 
-                       description='$description', 
                        start_date='$start_date', 
                        end_date='$end_date', 
-                       budget='$budget', 
-                       status='$status', 
-                       priority='$priority', 
-                       assigned_to='$assigned_to' 
+                       sales='$sales', 
+                       status='$status' 
                        WHERE id=$id";
             
             if (mysqli_query($conn, $update)) {
@@ -136,14 +122,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
     }
-}
-
-// Ambil data untuk filter (status unik)
-$status_query = "SELECT DISTINCT status FROM projects";
-$status_result = mysqli_query($conn, $status_query);
-$statuses = [];
-while ($row = mysqli_fetch_assoc($status_result)) {
-    $statuses[] = $row['status'];
 }
 ?>
 
@@ -357,15 +335,10 @@ while ($row = mysqli_fetch_assoc($status_result)) {
         }
 
         .status-Planning { background: #e3f2fd; color: #11cdef; }
-        .status-In Progress { background: #fff3e0; color: #fb6340; }
+        .status-InProgress { background: #fff3e0; color: #fb6340; }
         .status-Review { background: #fde8e8; color: #f5365c; }
         .status-Completed { background: #e3f5ec; color: #2dce89; }
-        .status-On Hold { background: #eef2f7; color: #8898aa; }
-
-        .priority-high { color: #f5365c; font-weight: bold; }
-        .priority-medium { color: #fb6340; font-weight: bold; }
-        .priority-low { color: #2dce89; font-weight: bold; }
-        .priority-urgent { color: #f5365c; font-weight: bold; background: #fde8e8; padding: 2px 8px; border-radius: 20px; }
+        .status-OnHold { background: #eef2f7; color: #8898aa; }
 
         .action-buttons {
             display: flex;
@@ -382,7 +355,6 @@ while ($row = mysqli_fetch_assoc($status_result)) {
         .btn-edit { color: #11cdef; }
         .btn-delete { color: #f5365c; }
 
-        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -403,11 +375,9 @@ while ($row = mysqli_fetch_assoc($status_result)) {
         .modal-content {
             background: white;
             border-radius: 12px;
-            width: 600px;
+            width: 500px;
             max-width: 90%;
             padding: 25px;
-            max-height: 90vh;
-            overflow-y: auto;
         }
 
         .modal-header {
@@ -441,17 +411,12 @@ while ($row = mysqli_fetch_assoc($status_result)) {
             font-weight: 500;
         }
 
-        .form-group input, .form-group select, .form-group textarea {
+        .form-group input, .form-group select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
         }
 
         .btn-submit {
@@ -537,12 +502,16 @@ while ($row = mysqli_fetch_assoc($status_result)) {
         <?php endif; ?>
 
         <div class="project-header">
-            <button class="btn-add" onclick="openAddModal()">
-                <i class="fas fa-plus"></i> Tambah Project
-            </button>
+            <div>
+                <?php if ($user_role == 'Director'): ?>
+                    <button class="btn-add" onclick="openAddModal()">
+                        <i class="fas fa-plus"></i> Tambah Project
+                    </button>
+                <?php endif; ?>
+            </div>
             <div class="filter-box">
                 <form method="GET" action="" class="search-box">
-                    <input type="text" name="search" placeholder="Cari project/client..." value="<?php echo htmlspecialchars($search); ?>">
+                    <input type="text" name="search" placeholder="Cari kode/client..." value="<?php echo htmlspecialchars($search); ?>">
                     <button type="submit"><i class="fas fa-search"></i> Cari</button>
                 </form>
                 <select onchange="location.href='?status='+this.value+'&search=<?php echo urlencode($search); ?>'">
@@ -564,15 +533,15 @@ while ($row = mysqli_fetch_assoc($status_result)) {
                 <thead>
                     <tr>
                         <th>No</th>
-                        <th>Project Name</th>
+                        <th>Kode</th>
                         <th>Client</th>
                         <th>Start Date</th>
                         <th>End Date</th>
-                        <th>Budget</th>
+                        <th>Sales</th>
                         <th>Status</th>
-                        <th>Priority</th>
-                        <th>Assigned To</th>
-                        <th>Aksi</th>
+                        <?php if ($user_role == 'Director'): ?>
+                            <th>Aksi</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -581,35 +550,31 @@ while ($row = mysqli_fetch_assoc($status_result)) {
                         <?php while ($row = mysqli_fetch_assoc($result)): ?>
                             <tr>
                                 <td><?php echo $no++; ?></td>
-                                <td><strong><?php echo htmlspecialchars($row['project_name']); ?></strong></td>
+                                <td><strong><?php echo htmlspecialchars($row['kode']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($row['client_name']); ?></td>
                                 <td><?php echo $row['start_date'] ? date('d M Y', strtotime($row['start_date'])) : '-'; ?></td>
                                 <td><?php echo $row['end_date'] ? date('d M Y', strtotime($row['end_date'])) : '-'; ?></td>
-                                <td>Rp <?php echo number_format($row['budget'], 0, ',', '.'); ?></td>
+                                <td>Rp <?php echo number_format($row['sales'], 0, ',', '.'); ?></td>
                                 <td>
                                     <span class="status-badge status-<?php echo str_replace(' ', '', $row['status']); ?>">
                                         <?php echo $row['status']; ?>
                                     </span>
                                 </td>
-                                <td>
-                                    <span class="priority-<?php echo strtolower($row['priority']); ?>">
-                                        <?php echo $row['priority']; ?>
-                                    </span>
-                                </td>
-                                <td><?php echo htmlspecialchars($row['assigned_to']); ?></td>
-                                <td class="action-buttons">
-                                    <button class="btn-edit" onclick="openEditModal(<?php echo $row['id']; ?>)">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn-delete" onclick="openDeleteModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['project_name']); ?>')">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </td>
+                                <?php if ($user_role == 'Director'): ?>
+                                    <td class="action-buttons">
+                                        <button class="btn-edit" onclick="openEditModal(<?php echo $row['id']; ?>)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn-delete" onclick="openDeleteModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['kode']); ?>')">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </td>
+                                <?php endif; ?>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="10" style="text-align: center; padding: 50px;">
+                            <td colspan="<?php echo ($user_role == 'Director') ? '8' : '7'; ?>" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-folder-open" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada data project
                             </td>
@@ -638,6 +603,7 @@ while ($row = mysqli_fetch_assoc($status_result)) {
         <?php endif; ?>
     </div>
 
+    <?php if ($user_role == 'Director'): ?>
     <!-- Modal Tambah Project -->
     <div id="addModal" class="modal">
         <div class="modal-content">
@@ -648,16 +614,12 @@ while ($row = mysqli_fetch_assoc($status_result)) {
             <form method="POST" action="">
                 <input type="hidden" name="action" value="add">
                 <div class="form-group">
-                    <label>Nama Project *</label>
-                    <input type="text" name="project_name" required>
+                    <label>Kode Project *</label>
+                    <input type="text" name="kode" placeholder="Contoh: PRJ-001" required>
                 </div>
                 <div class="form-group">
                     <label>Nama Client *</label>
                     <input type="text" name="client_name" required>
-                </div>
-                <div class="form-group">
-                    <label>Deskripsi</label>
-                    <textarea name="description"></textarea>
                 </div>
                 <div class="form-group">
                     <label>Tanggal Mulai</label>
@@ -668,8 +630,8 @@ while ($row = mysqli_fetch_assoc($status_result)) {
                     <input type="date" name="end_date">
                 </div>
                 <div class="form-group">
-                    <label>Budget</label>
-                    <input type="number" name="budget" step="1000000" placeholder="Masukkan nominal budget">
+                    <label>Sales / Nilai Project</label>
+                    <input type="number" name="sales" step="1000000" placeholder="Masukkan nominal sales">
                 </div>
                 <div class="form-group">
                     <label>Status</label>
@@ -680,19 +642,6 @@ while ($row = mysqli_fetch_assoc($status_result)) {
                         <option value="Completed">Completed</option>
                         <option value="On Hold">On Hold</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label>Priority</label>
-                    <select name="priority">
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                        <option value="Urgent">Urgent</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Assigned To (Tim)</label>
-                    <input type="text" name="assigned_to" placeholder="Contoh: Tim Creative">
                 </div>
                 <button type="submit" class="btn-submit">Simpan Project</button>
             </form>
@@ -710,16 +659,12 @@ while ($row = mysqli_fetch_assoc($status_result)) {
                 <input type="hidden" name="action" value="edit">
                 <input type="hidden" name="id" id="edit_id">
                 <div class="form-group">
-                    <label>Nama Project</label>
-                    <input type="text" name="project_name" id="edit_project_name" required>
+                    <label>Kode Project</label>
+                    <input type="text" name="kode" id="edit_kode" required>
                 </div>
                 <div class="form-group">
                     <label>Nama Client</label>
                     <input type="text" name="client_name" id="edit_client_name" required>
-                </div>
-                <div class="form-group">
-                    <label>Deskripsi</label>
-                    <textarea name="description" id="edit_description"></textarea>
                 </div>
                 <div class="form-group">
                     <label>Tanggal Mulai</label>
@@ -730,8 +675,8 @@ while ($row = mysqli_fetch_assoc($status_result)) {
                     <input type="date" name="end_date" id="edit_end_date">
                 </div>
                 <div class="form-group">
-                    <label>Budget</label>
-                    <input type="number" name="budget" id="edit_budget" step="1000000">
+                    <label>Sales / Nilai Project</label>
+                    <input type="number" name="sales" id="edit_sales" step="1000000">
                 </div>
                 <div class="form-group">
                     <label>Status</label>
@@ -742,19 +687,6 @@ while ($row = mysqli_fetch_assoc($status_result)) {
                         <option value="Completed">Completed</option>
                         <option value="On Hold">On Hold</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label>Priority</label>
-                    <select name="priority" id="edit_priority">
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                        <option value="Urgent">Urgent</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Assigned To (Tim)</label>
-                    <input type="text" name="assigned_to" id="edit_assigned_to">
                 </div>
                 <button type="submit" class="btn-submit">Update Project</button>
             </form>
@@ -790,20 +722,16 @@ while ($row = mysqli_fetch_assoc($status_result)) {
         }
         
         function openEditModal(id) {
-            // Fetch data project via AJAX
-            fetch(`api/get_project.php?id=${id}`)
+            fetch(`get_project.php?id=${id}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
-                    document.getElementById('edit_project_name').value = data.project_name;
+                    document.getElementById('edit_kode').value = data.kode;
                     document.getElementById('edit_client_name').value = data.client_name;
-                    document.getElementById('edit_description').value = data.description;
                     document.getElementById('edit_start_date').value = data.start_date;
                     document.getElementById('edit_end_date').value = data.end_date;
-                    document.getElementById('edit_budget').value = data.budget;
+                    document.getElementById('edit_sales').value = data.sales;
                     document.getElementById('edit_status').value = data.status;
-                    document.getElementById('edit_priority').value = data.priority;
-                    document.getElementById('edit_assigned_to').value = data.assigned_to;
                     document.getElementById('editModal').classList.add('show');
                 });
         }
@@ -828,5 +756,6 @@ while ($row = mysqli_fetch_assoc($status_result)) {
             }
         }
     </script>
+    <?php endif; ?>
 </body>
 </html>
