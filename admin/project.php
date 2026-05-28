@@ -559,8 +559,8 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <td><strong><?php echo htmlspecialchars($row['kode']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($row['client_name']); ?></td>
                                 <td><?php echo $row['start_date'] ? date('d M Y', strtotime($row['start_date'])) : '-'; ?></td>
-                                <td><?php echo $row['end_date'] ? date('d M Y', strtotime($row['end_date'])) : '-'; ?></td
-                                <td><?php echo htmlspecialchars($row['sales']); ?></td
+                                <td><?php echo $row['end_date'] ? date('d M Y', strtotime($row['end_date'])) : '-'; ?></td>
+                                <td><?php echo htmlspecialchars($row['sales']); ?></td>
                                 <td>
                                     <span class="status-badge status-<?php echo str_replace(' ', '', $row['status']); ?>">
                                         <?php echo $row['status']; ?>
@@ -687,9 +687,9 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     <input type="date" name="end_date" id="edit_end_date">
                 </div>
                 <div class="form-group">
-                    <label>sales (Person In Charge)</label>
+                    <label>Sales (Person In Charge)</label>
                     <select name="sales" id="edit_sales" required>
-                        <option value="">-- Pilih sales --</option>
+                        <option value="">-- Pilih Sales --</option>
                         <?php foreach ($staff_list as $staff): ?>
                             <option value="<?php echo htmlspecialchars($staff['name']); ?>">
                                 <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
@@ -740,7 +740,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         function openEditModal(id) {
-            fetch(`api/get_project.php?id=${id}`)
+            fetch(`get_project.php?id=${id}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
@@ -751,6 +751,10 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     document.getElementById('edit_sales').value = data.sales;
                     document.getElementById('edit_status').value = data.status;
                     document.getElementById('editModal').classList.add('show');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Gagal mengambil data project');
                 });
         }
         

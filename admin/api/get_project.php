@@ -1,5 +1,6 @@
 <?php
-require_once "../config.php";
+// api/get_project.php
+require_once "../config.php";  // <-- karena file di dalam folder api, harus naik 1 level
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
