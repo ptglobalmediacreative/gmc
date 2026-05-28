@@ -1,5 +1,9 @@
 <?php
 // sidebar.php - File terpisah untuk sidebar
+// Cek apakah session sudah dimulai
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 ?>
 <div class="sidebar">
     <div class="sidebar-header">
