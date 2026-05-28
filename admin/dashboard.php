@@ -309,7 +309,7 @@ $persen_pendapatan = "0.43% ↓";
     <!-- SIDEBAR -->
     <div class="sidebar">
         <div class="sidebar-header">
-            <h2>Booking Tour</h2>
+            <h2>Global Media Creative</h2>
             <p>Dashboard Admin</p>
         </div>
         <div class="sidebar-menu">
