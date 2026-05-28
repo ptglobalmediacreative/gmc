@@ -690,10 +690,6 @@ foreach ($notifications as $notif) {
 
         <!-- TASK SCHEDULE SECTION -->
         <div class="task-section">
-            <div class="task-header">
-                <h3><i class="fas fa-tasks"></i> Task Schedule</h3>
-                <a href="#" class="btn-add"><i class="fas fa-plus"></i> Tambah Task</a>
-            </div>
             <div class="task-table">
                 <table>
                     <thead>
