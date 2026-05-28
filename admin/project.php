@@ -791,7 +791,7 @@ while ($row = mysqli_fetch_assoc($status_result)) {
         
         function openEditModal(id) {
             // Fetch data project via AJAX
-            fetch(`get_project.php?id=${id}`)
+            fetch(`api/get_project.php?id=${id}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
