@@ -547,6 +547,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                         <th>Status</th>
                         <?php if ($user_role == 'Director'): ?>
                             <th>Aksi</th>
+                            <th>Task Manager</th>
                         <?php endif; ?>
                     </tr>
                 </thead>
