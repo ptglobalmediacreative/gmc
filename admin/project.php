@@ -362,6 +362,17 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         .btn-edit { color: #11cdef; }
         .btn-delete { color: #f5365c; }
 
+        .btn-detail { 
+            background: #17a2b8; 
+            color: white; 
+            padding: 5px 12px; 
+            border-radius: 4px; 
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-detail:hover { background: #138496; }
+
         .modal {
             display: none;
             position: fixed;
@@ -486,17 +497,6 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             color: white;
             border-color: #1e3c72;
         }
-
-        .btn-detail { 
-            background: #17a2b8; 
-            color: white; 
-            padding: 5px 12px; 
-            border-radius: 4px; 
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .btn-detail:hover { background: #138496; }
     </style>
 </head>
 <body>
@@ -558,8 +558,8 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                         <th>Status</th>
                         <?php if ($user_role == 'Director'): ?>
                             <th>Aksi</th>
-                            <th>Task Manager</th>
                         <?php endif; ?>
+                        <th>Task Manager</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -587,17 +587,17 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </td>
-                                    <td>
-                                        <button class="btn-detail" onclick="window.location.href='detail_project.php?id=<?php echo $row['id']; ?>'">
-                                            <i class="fas fa-eye"></i> Detail
-                                        </button>
-                                    </td>
                                 <?php endif; ?>
+                                <td>
+                                    <button class="btn-detail" onclick="window.location.href='detail_project.php?id=<?php echo $row['id']; ?>'">
+                                        <i class="fas fa-eye"></i> Detail
+                                    </button>
+                                </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="<?php echo ($user_role == 'Director') ? '8' : '7'; ?>" style="text-align: center; padding: 50px;">
+                            <td colspan="<?php echo ($user_role == 'Director') ? '9' : '8'; ?>" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-folder-open" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada data project
                             </td>
