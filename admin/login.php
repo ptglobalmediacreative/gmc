@@ -183,7 +183,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <button type="submit">Login</button>
         </form>
         <div class="footer">
-            &copy; 2025 Global Media Creative. All rights reserved.
+            &copy; 2026 Global Media Creative. All rights reserved.
         </div>
     </div>
 </body>
