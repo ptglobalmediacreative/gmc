@@ -875,7 +875,7 @@ $stats = mysqli_fetch_assoc($stats_result);
         }
         
         function openEditModal(id) {
-            fetch(`get_task.php?id=${id}`)
+            fetch(`api/get_task.php?id=${id}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
