@@ -24,12 +24,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         // Verifikasi password (bcrypt)
         if (password_verify($password, $user['password'])) {
-            // Set session
+            // Set session - SESUAIKAN DENGAN STRUKTUR DATABASE BARU
             $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
+            $_SESSION['name'] = $user['name'];        // <-- GANTI dari full_name
             $_SESSION['email'] = $user['email'];
-            $_SESSION['full_name'] = $user['full_name'];
             $_SESSION['role'] = $user['role'];
+            $_SESSION['phone'] = $user['phone'];      // <-- tambahan (opsional)
             
             header("Location: dashboard.php");
             exit();
@@ -149,11 +149,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             margin-top: 20px;
             font-size: 12px;
             color: #999;
-        }
-        
-        .gmail-icon {
-            display: inline-block;
-            margin-right: 5px;
         }
     </style>
 </head>

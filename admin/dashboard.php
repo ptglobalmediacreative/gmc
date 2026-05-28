@@ -590,7 +590,7 @@ foreach ($notifications as $notif) {
                     </div>
                 </div>
                 
-                <span>Halo, <?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
+                <span>Halo, <?php echo htmlspecialchars($_SESSION['name']); ?></span>
                 <span class="role-badge"><?php echo htmlspecialchars($_SESSION['role']); ?></span>
                 <a href="logout.php" class="logout-btn">Logout</a>
             </div>
