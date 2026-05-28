@@ -27,10 +27,10 @@ $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['searc
 // Query untuk mengambil data staff
 $where = "";
 if (!empty($search)) {
-    $where = " WHERE username LIKE '%$search%' OR full_name LIKE '%$search%' OR email LIKE '%$search%' OR role LIKE '%$search%'";
+    $where = " WHERE name LIKE '%$search%' OR email LIKE '%$search%' OR phone LIKE '%$search%' OR role LIKE '%$search%'";
 }
 
-$query = "SELECT * FROM users $where ORDER BY created_at DESC LIMIT $offset, $limit";
+$query = "SELECT * FROM users $where ORDER BY join_date DESC LIMIT $offset, $limit";
 $result = mysqli_query($conn, $query);
 
 // Hitung total data untuk pagination
@@ -46,14 +46,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $action = $_POST['action'];
         
         if ($action == 'add') {
-            $username = mysqli_real_escape_string($conn, $_POST['username']);
+            $name = mysqli_real_escape_string($conn, $_POST['name']);
             $email = mysqli_real_escape_string($conn, $_POST['email']);
+            $phone = mysqli_real_escape_string($conn, $_POST['phone']);
             $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-            $full_name = mysqli_real_escape_string($conn, $_POST['full_name']);
             $role = mysqli_real_escape_string($conn, $_POST['role']);
+            $join_date = date('Y-m-d');
             
-            $insert = "INSERT INTO users (username, email, password, full_name, role) 
-                       VALUES ('$username', '$email', '$password', '$full_name', '$role')";
+            $insert = "INSERT INTO users (name, email, phone, password, role, join_date) 
+                       VALUES ('$name', '$email', '$phone', '$password', '$role', '$join_date')";
             if (mysqli_query($conn, $insert)) {
                 $success = "Staff berhasil ditambahkan!";
                 echo "<script>window.location.href='staff.php';</script>";
@@ -64,15 +65,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         elseif ($action == 'edit') {
             $id = (int)$_POST['id'];
-            $username = mysqli_real_escape_string($conn, $_POST['username']);
+            $name = mysqli_real_escape_string($conn, $_POST['name']);
             $email = mysqli_real_escape_string($conn, $_POST['email']);
-            $full_name = mysqli_real_escape_string($conn, $_POST['full_name']);
+            $phone = mysqli_real_escape_string($conn, $_POST['phone']);
             $role = mysqli_real_escape_string($conn, $_POST['role']);
             
-            $update = "UPDATE users SET username='$username', email='$email', full_name='$full_name', role='$role' WHERE id=$id";
+            $update = "UPDATE users SET name='$name', email='$email', phone='$phone', role='$role' WHERE id=$id";
             if (!empty($_POST['password'])) {
                 $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-                $update = "UPDATE users SET username='$username', email='$email', password='$password', full_name='$full_name', role='$role' WHERE id=$id";
+                $update = "UPDATE users SET name='$name', email='$email', phone='$phone', password='$password', role='$role' WHERE id=$id";
             }
             
             if (mysqli_query($conn, $update)) {
@@ -85,12 +86,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         elseif ($action == 'delete') {
             $id = (int)$_POST['id'];
-            $delete = "DELETE FROM users WHERE id=$id";
-            if (mysqli_query($conn, $delete)) {
-                $success = "Staff berhasil dihapus!";
-                echo "<script>window.location.href='staff.php';</script>";
+            // Cek jangan sampai menghapus diri sendiri
+            if ($id == $_SESSION['user_id']) {
+                $error = "Anda tidak dapat menghapus akun sendiri!";
             } else {
-                $error = "Gagal menghapus staff: " . mysqli_error($conn);
+                $delete = "DELETE FROM users WHERE id=$id";
+                if (mysqli_query($conn, $delete)) {
+                    $success = "Staff berhasil dihapus!";
+                    echo "<script>window.location.href='staff.php';</script>";
+                } else {
+                    $error = "Gagal menghapus staff: " . mysqli_error($conn);
+                }
             }
         }
     }
@@ -224,6 +230,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         .btn-add {
@@ -304,17 +312,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             display: inline-block;
         }
 
-        .role-badge-small.admin {
-            background: #f5365c;
-        }
-
-        .role-badge-small.director {
-            background: #fb6340;
-        }
-
-        .role-badge-small.staff {
-            background: #2dce89;
-        }
+        .role-badge-small.Finance { background: #f5365c; }
+        .role-badge-small.Director { background: #fb6340; }
+        .role-badge-small.Designer { background: #2dce89; }
+        .role-badge-small.Project_Coordinator { background: #11cdef; }
+        .role-badge-small.Content_Brief { background: #5e72e4; }
+        .role-badge-small.Video_Graphic { background: #8965e0; }
+        .role-badge-small.Marketing { background: #f3a4b5; }
 
         .action-buttons {
             display: flex;
@@ -476,7 +480,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <div class="top-header">
             <h1>Staff Management</h1>
             <div class="user-info">
-                <span>Halo, <?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
+                <span>Halo, <?php echo htmlspecialchars($_SESSION['name']); ?></span>
                 <span class="role-badge"><?php echo htmlspecialchars($_SESSION['role']); ?></span>
                 <a href="logout.php" class="logout-btn">Logout</a>
             </div>
@@ -521,20 +525,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <?php while ($row = mysqli_fetch_assoc($result)): ?>
                             <tr>
                                 <td><?php echo $no++; ?></td>
-                                <td><strong><?php echo htmlspecialchars($row['username']); ?></strong></td>
-                                <td><?php echo htmlspecialchars($row['full_name']); ?></td>
+                                <td><strong><?php echo htmlspecialchars($row['name']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($row['email']); ?></td>
+                                <td><?php echo htmlspecialchars($row['phone']); ?></td>
                                 <td>
-                                    <span class="role-badge-small <?php echo $row['role']; ?>">
-                                        <?php echo ucfirst($row['role']); ?>
+                                    <span class="role-badge-small <?php echo str_replace(' ', '_', $row['role']); ?>">
+                                        <?php echo str_replace('_', ' ', $row['role']); ?>
                                     </span>
                                 </td>
-                                <td><?php echo date('d M Y', strtotime($row['created_at'])); ?></td>
+                                <td><?php echo date('d M Y', strtotime($row['join_date'])); ?></td>
                                 <td class="action-buttons">
-                                    <button class="btn-edit" onclick="openEditModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['username']); ?>', '<?php echo addslashes($row['email']); ?>', '<?php echo addslashes($row['full_name']); ?>', '<?php echo $row['role']; ?>')">
+                                    <button class="btn-edit" onclick="openEditModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['name']); ?>', '<?php echo addslashes($row['email']); ?>', '<?php echo addslashes($row['phone']); ?>', '<?php echo $row['role']; ?>')">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn-delete" onclick="openDeleteModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['full_name']); ?>')">
+                                    <button class="btn-delete" onclick="openDeleteModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['name']); ?>')">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </td>
@@ -581,27 +585,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <form method="POST" action="">
                 <input type="hidden" name="action" value="add">
                 <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" name="username" required>
+                    <label>Nama Lengkap</label>
+                    <input type="text" name="name" required>
                 </div>
                 <div class="form-group">
                     <label>Email</label>
                     <input type="email" name="email" required>
                 </div>
                 <div class="form-group">
+                    <label>No. Telepon</label>
+                    <input type="text" name="phone" placeholder="Contoh: 08123456789">
+                </div>
+                <div class="form-group">
                     <label>Password</label>
                     <input type="password" name="password" required>
                 </div>
                 <div class="form-group">
-                    <label>Nama Lengkap</label>
-                    <input type="text" name="full_name" required>
-                </div>
-                <div class="form-group">
                     <label>Role</label>
                     <select name="role" required>
-                        <option value="staff">Staff</option>
-                        <option value="admin">Admin</option>
-                        <option value="director">Director</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Director">Director</option>
+                        <option value="Designer">Designer</option>
+                        <option value="Project Coordinator">Project Coordinator</option>
+                        <option value="Content Brief">Content Brief</option>
+                        <option value="Video Graphic">Video Graphic</option>
+                        <option value="Marketing">Marketing</option>
                     </select>
                 </div>
                 <button type="submit" class="btn-submit">Simpan</button>
@@ -620,27 +628,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <input type="hidden" name="action" value="edit">
                 <input type="hidden" name="id" id="edit_id">
                 <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" name="username" id="edit_username" required>
+                    <label>Nama Lengkap</label>
+                    <input type="text" name="name" id="edit_name" required>
                 </div>
                 <div class="form-group">
                     <label>Email</label>
                     <input type="email" name="email" id="edit_email" required>
                 </div>
                 <div class="form-group">
+                    <label>No. Telepon</label>
+                    <input type="text" name="phone" id="edit_phone">
+                </div>
+                <div class="form-group">
                     <label>Password (kosongkan jika tidak diubah)</label>
                     <input type="password" name="password">
                 </div>
                 <div class="form-group">
-                    <label>Nama Lengkap</label>
-                    <input type="text" name="full_name" id="edit_fullname" required>
-                </div>
-                <div class="form-group">
                     <label>Role</label>
                     <select name="role" id="edit_role" required>
-                        <option value="staff">Staff</option>
-                        <option value="admin">Admin</option>
-                        <option value="director">Director</option>
+                        <option value="Finance">Finance</option>
+                        <option value="Director">Director</option>
+                        <option value="Designer">Designer</option>
+                        <option value="Project Coordinator">Project Coordinator</option>
+                        <option value="Content Brief">Content Brief</option>
+                        <option value="Video Graphic">Video Graphic</option>
+                        <option value="Marketing">Marketing</option>
                     </select>
                 </div>
                 <button type="submit" class="btn-submit">Update</button>
@@ -676,11 +688,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             document.getElementById('addModal').classList.remove('show');
         }
         
-        function openEditModal(id, username, email, fullname, role) {
+        function openEditModal(id, name, email, phone, role) {
             document.getElementById('edit_id').value = id;
-            document.getElementById('edit_username').value = username;
+            document.getElementById('edit_name').value = name;
             document.getElementById('edit_email').value = email;
-            document.getElementById('edit_fullname').value = fullname;
+            document.getElementById('edit_phone').value = phone;
             document.getElementById('edit_role').value = role;
             document.getElementById('editModal').classList.add('show');
         }
