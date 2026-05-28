@@ -171,12 +171,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         <form method="POST" action="">
             <div class="form-group">
-                <label>📧 Email Gmail</label>
-                <input type="email" name="email" placeholder="contoh: nezhaathian5@gmail.com" required autofocus>
+                <label>Email</label>
+                <input type="email" name="email" required autofocus>
             </div>
             
             <div class="form-group">
-                <label>🔒 Password</label>
+                <label>Password</label>
                 <input type="password" name="password" placeholder="Masukkan password" required>
             </div>
             
