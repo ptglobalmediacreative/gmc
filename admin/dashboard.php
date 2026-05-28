@@ -602,10 +602,7 @@ foreach ($notifications as $notif) {
                 <i class="fas fa-tachometer-alt"></i> Dashboard
             </a>
             <a href="#">
-                <i class="fas fa-shopping-cart"></i> Pemesanan
-            </a>
-            <a href="#">
-                <i class="fas fa-users"></i> Wisatawan
+                <i class="fas fa-users"></i> Staff
             </a>
             <a href="#">
                 <i class="fas fa-umbrella-beach"></i> Wisata
