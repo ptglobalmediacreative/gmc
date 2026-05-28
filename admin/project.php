@@ -589,7 +589,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                                     </td>
                                 <?php endif; ?>
                                 <td>
-                                    <button class="btn-detail" onclick="window.location.href='detail_project.php?id=<?php echo $row['id']; ?>'">
+                                    <button class="btn-detail" onclick="window.location.href='taskdetail.php?id=<?php echo $row['id']; ?>'">
                                         <i class=></i> Detail
                                     </button>
                                 </td>
