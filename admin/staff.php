@@ -12,6 +12,8 @@ if (!isset($_SESSION['user_id'])) {
 
 // Ambil data user yang login
 $user_id = $_SESSION['user_id'];
+$user_role = $_SESSION['role']; // Simpan role user yang login
+
 $query_user = "SELECT * FROM users WHERE id = '$user_id'";
 $result_user = mysqli_query($conn, $query_user);
 $user = mysqli_fetch_assoc($result_user);
@@ -40,8 +42,8 @@ $total_row = mysqli_fetch_assoc($total_result);
 $total_data = $total_row['total'];
 $total_pages = ceil($total_data / $limit);
 
-// Proses tambah/edit/hapus staff
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+// Proses tambah/edit/hapus staff (hanya Director yang bisa)
+if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         $action = $_POST['action'];
         
@@ -123,7 +125,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             display: flex;
         }
 
-        /* ========== SIDEBAR ========== */
         .sidebar {
             width: 280px;
             background: #ffffff;
@@ -181,14 +182,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border-radius: 0 10px 10px 0;
         }
 
-        /* ========== MAIN CONTENT ========== */
         .main-content {
             margin-left: 280px;
             flex: 1;
             padding: 20px 30px;
         }
 
-        /* Header */
         .top-header {
             display: flex;
             justify-content: space-between;
@@ -224,7 +223,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 14px;
         }
 
-        /* Staff Management */
         .staff-header {
             display: flex;
             justify-content: space-between;
@@ -340,7 +338,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             color: #f5365c;
         }
 
-        /* Modal */
+        .no-access {
+            text-align: center;
+            padding: 40px;
+            color: #8898aa;
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -405,11 +408,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 14px;
         }
 
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #1e3c72;
-        }
-
         .btn-submit {
             width: 100%;
             padding: 12px;
@@ -443,7 +441,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border: 1px solid #f5365c;
         }
 
-        /* Pagination */
         .pagination {
             display: flex;
             justify-content: flex-end;
@@ -494,6 +491,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <?php endif; ?>
 
         <div class="staff-header">
+            <div>
+                <?php if ($user_role == 'Director'): ?>
+                    <button class="btn-add" onclick="openAddModal()">
+                        <i class="fas fa-plus"></i> Tambah Staff
+                    </button>
+                <?php endif; ?>
+            </div>
             <form method="GET" action="" class="search-box">
                 <input type="text" name="search" placeholder="Cari staff..." value="<?php echo htmlspecialchars($search); ?>">
                 <button type="submit"><i class="fas fa-search"></i> Cari</button>
@@ -513,7 +517,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <th>Phone</th>
                         <th>Role</th>
                         <th>Join Date</th>
-                        <th>Aksi</th>
+                        <?php if ($user_role == 'Director'): ?>
+                            <th>Aksi</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -531,19 +537,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     </span>
                                 </td>
                                 <td><?php echo date('d M Y', strtotime($row['join_date'])); ?></td>
-                                <td class="action-buttons">
-                                    <button class="btn-edit" onclick="openEditModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['name']); ?>', '<?php echo addslashes($row['email']); ?>', '<?php echo addslashes($row['phone']); ?>', '<?php echo $row['role']; ?>')">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn-delete" onclick="openDeleteModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['name']); ?>')">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </td>
+                                <?php if ($user_role == 'Director'): ?>
+                                    <td class="action-buttons">
+                                        <button class="btn-edit" onclick="openEditModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['name']); ?>', '<?php echo addslashes($row['email']); ?>', '<?php echo addslashes($row['phone']); ?>', '<?php echo $row['role']; ?>')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn-delete" onclick="openDeleteModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['name']); ?>')">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </td>
+                                <?php endif; ?>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" style="text-align: center; padding: 50px;">
+                            <td colspan="<?php echo ($user_role == 'Director') ? '7' : '6'; ?>" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-users" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada data staff
                             </td>
@@ -572,7 +580,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <?php endif; ?>
     </div>
 
-    <!-- Modal Tambah Staff -->
+    <?php if ($user_role == 'Director'): ?>
+    <!-- Modal Tambah Staff (Hanya untuk Director) -->
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -614,7 +623,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </div>
 
-    <!-- Modal Edit Staff -->
+    <!-- Modal Edit Staff (Hanya untuk Director) -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -657,7 +666,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </div>
 
-    <!-- Modal Hapus Staff -->
+    <!-- Modal Hapus Staff (Hanya untuk Director) -->
     <div id="deleteModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -708,12 +717,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             document.getElementById('deleteModal').classList.remove('show');
         }
         
-        // Tutup modal saat klik di luar
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
                 event.target.classList.remove('show');
             }
         }
     </script>
+    <?php endif; ?>
 </body>
 </html>
