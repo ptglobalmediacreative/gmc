@@ -436,37 +436,6 @@ foreach ($notifications as $notif) {
             overflow: hidden;
         }
 
-        .task-header {
-            padding: 20px 25px;
-            border-bottom: 1px solid #eef2f7;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .task-header h3 {
-            font-size: 18px;
-            color: #1e3c72;
-        }
-
-        .task-header h3 i {
-            margin-right: 10px;
-        }
-
-        .btn-add {
-            background: #1e3c72;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-size: 13px;
-            transition: background 0.3s;
-        }
-
-        .btn-add:hover {
-            background: #2a5298;
-        }
-
         .task-table {
             overflow-x: auto;
         }
@@ -572,17 +541,6 @@ foreach ($notifications as $notif) {
             font-weight: bold;
         }
 
-        .task-actions i {
-            margin: 0 5px;
-            cursor: pointer;
-            color: #8898aa;
-            transition: color 0.3s;
-        }
-
-        .task-actions i:hover {
-            color: #1e3c72;
-        }
-
         .empty-task {
             text-align: center;
             padding: 50px;
@@ -591,36 +549,8 @@ foreach ($notifications as $notif) {
     </style>
 </head>
 <body>
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h2>Global Media Creative</h2>
-            <p>Dashboard Admin</p>
-        </div>
-        <div class="sidebar-menu">
-            <a href="dashboard.php" class="active">
-                <i class="fas fa-tachometer-alt"></i> Dashboard
-            </a>
-            <a href="#">
-                <i class="fas fa-users"></i> Staff
-            </a>
-            <a href="#">
-                <i class="fas fa-umbrella-beach"></i> Wisata
-            </a>
-            <a href="#">
-                <i class="fas fa-star"></i> Ulasan
-            </a>
-            <a href="#">
-                <i class="fas fa-chart-line"></i> Analisis
-            </a>
-            <a href="#">
-                <i class="fas fa-calendar"></i> Kalender
-            </a>
-            <a href="#">
-                <i class="fas fa-envelope"></i> Pesan
-            </a>
-        </div>
-    </div>
+    <!-- INCLUDE SIDEBAR -->
+    <?php include "sidebar.php"; ?>
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
@@ -725,9 +655,9 @@ foreach ($notifications as $notif) {
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7" class="empty-task">
+                                <td colspan="6" class="empty-task">
                                     <i class="fas fa-calendar-alt" style="font-size: 40px; margin-bottom: 10px; display: block;"></i>
-                                    Belum ada task schedule. Klik "Tambah Task" untuk membuat task baru.
+                                    Belum ada task schedule.
                                 </td>
                             </tr>
                         <?php endif; ?>
