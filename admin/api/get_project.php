@@ -1,5 +1,5 @@
 <?php
-require_once "config.php";
+require_once "../config.php";
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $id = (int)$_GET['id'];
-$query = "SELECT * FROM projects WHERE id = $id";
+$query = "SELECT id, kode, client_name, start_date, end_date, sales, status FROM projects WHERE id = $id";
 $result = mysqli_query($conn, $query);
 $data = mysqli_fetch_assoc($result);
 
