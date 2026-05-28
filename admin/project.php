@@ -486,6 +486,17 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             color: white;
             border-color: #1e3c72;
         }
+
+        .btn-detail { 
+            background: #17a2b8; 
+            color: white; 
+            padding: 5px 12px; 
+            border-radius: 4px; 
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-detail:hover { background: #138496; }
     </style>
 </head>
 <body>
