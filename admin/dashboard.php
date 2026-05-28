@@ -16,7 +16,7 @@ $query_user = "SELECT * FROM users WHERE id = '$user_id'";
 $result_user = mysqli_query($conn, $query_user);
 $user = mysqli_fetch_assoc($result_user);
 
-// Hitung total staff (role staff, admin, director)
+// Hitung total staff
 $query_staff = "SELECT COUNT(*) as total FROM users";
 $result_staff = mysqli_query($conn, $query_staff);
 $total_staff = 0;
@@ -25,9 +25,53 @@ if ($result_staff) {
     $total_staff = $data['total'];
 }
 
-// Sementara untuk Total Client dan Total Project Aktif (nanti bisa diupdate)
+// Sementara untuk Total Client dan Total Project Aktif
 $total_client = 0;
 $total_project_aktif = 0;
+
+// Data task schedule (sementara, nanti dari database)
+$tasks = [
+    [
+        'title' => 'Briefing Project Website',
+        'client' => 'PT Maju Bersama',
+        'deadline' => '2025-06-30',
+        'priority' => 'High',
+        'status' => 'In Progress',
+        'assigned_to' => 'Tim Creative'
+    ],
+    [
+        'title' => 'Desain Logo Branding',
+        'client' => 'Warung Kopi Nusantara',
+        'deadline' => '2025-06-25',
+        'priority' => 'Medium',
+        'status' => 'Review',
+        'assigned_to' => 'Tim Desain'
+    ],
+    [
+        'title' => 'Konten Instagram Campaign',
+        'client' => 'Fashion Store ID',
+        'deadline' => '2025-06-28',
+        'priority' => 'High',
+        'status' => 'Pending',
+        'assigned_to' => 'Tim Sosmed'
+    ],
+    [
+        'title' => 'Video Company Profile',
+        'client' => 'Startup Tech Solution',
+        'deadline' => '2025-07-05',
+        'priority' => 'Low',
+        'status' => 'Planning',
+        'assigned_to' => 'Tim Video'
+    ],
+    [
+        'title' => 'SEO Optimization Website',
+        'client' => 'E-commerce Jaya Abadi',
+        'deadline' => '2025-06-27',
+        'priority' => 'Medium',
+        'status' => 'In Progress',
+        'assigned_to' => 'Tim IT'
+    ]
+];
 ?>
 
 <!DOCTYPE html>
@@ -196,22 +240,166 @@ $total_project_aktif = 0;
             font-size: 12px;
         }
 
-        /* Welcome Card */
-        .welcome-card {
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            color: white;
-            padding: 30px;
+        /* ========== TASK SCHEDULE ========== */
+        .task-section {
+            background: white;
             border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             margin-top: 20px;
+            overflow: hidden;
         }
 
-        .welcome-card h3 {
-            margin-bottom: 10px;
-            font-size: 20px;
+        .task-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #eef2f7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .welcome-card p {
-            opacity: 0.9;
+        .task-header h3 {
+            font-size: 18px;
+            color: #1e3c72;
+        }
+
+        .task-header h3 i {
+            margin-right: 10px;
+        }
+
+        .btn-add {
+            background: #1e3c72;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            transition: background 0.3s;
+        }
+
+        .btn-add:hover {
+            background: #2a5298;
+        }
+
+        .task-table {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            color: #525f7f;
+            font-size: 13px;
+            font-weight: 600;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        td {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eef2f7;
+            color: #3a3f4b;
+            font-size: 14px;
+        }
+
+        .priority-high {
+            background: #fde8e8;
+            color: #f5365c;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .priority-medium {
+            background: #fff3e0;
+            color: #fb6340;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .priority-low {
+            background: #e3f5ec;
+            color: #2dce89;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .status-progress {
+            background: #e3f2fd;
+            color: #11cdef;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .status-review {
+            background: #fff3e0;
+            color: #fb6340;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .status-pending {
+            background: #fde8e8;
+            color: #f5365c;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .status-planning {
+            background: #e3f5ec;
+            color: #2dce89;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .deadline {
+            font-size: 13px;
+        }
+
+        .deadline.urgent {
+            color: #f5365c;
+            font-weight: bold;
+        }
+
+        .task-actions i {
+            margin: 0 5px;
+            cursor: pointer;
+            color: #8898aa;
+            transition: color 0.3s;
+        }
+
+        .task-actions i:hover {
+            color: #1e3c72;
+        }
+
+        .empty-task {
+            text-align: center;
+            padding: 50px;
+            color: #8898aa;
         }
     </style>
 </head>
@@ -280,6 +468,66 @@ $total_project_aktif = 0;
             </div>
         </div>
 
+        <!-- TASK SCHEDULE SECTION -->
+        <div class="task-section">
+            <div class="task-header">
+                <h3><i class="fas fa-tasks"></i> Task Schedule</h3>
+                <a href="#" class="btn-add"><i class="fas fa-plus"></i> Tambah Task</a>
+            </div>
+            <div class="task-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Task</th>
+                            <th>Client</th>
+                            <th>Deadline</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Assigned To</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (count($tasks) > 0): ?>
+                            <?php foreach ($tasks as $task): ?>
+                                <tr>
+                                    <td><strong><?php echo $task['title']; ?></strong></td>
+                                    <td><?php echo $task['client']; ?></td>
+                                    <td>
+                                        <span class="deadline <?php echo (strtotime($task['deadline']) < strtotime('+3 days') ? 'urgent' : ''); ?>">
+                                            <?php echo date('d M Y', strtotime($task['deadline'])); ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="priority-<?php echo strtolower($task['priority']); ?>">
+                                            <?php echo $task['priority']; ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="status-<?php echo strtolower(str_replace(' ', '', $task['status'])); ?>">
+                                            <?php echo $task['status']; ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo $task['assigned_to']; ?></td>
+                                    <td class="task-actions">
+                                        <i class="fas fa-edit" title="Edit"></i>
+                                        <i class="fas fa-check-circle" title="Complete" style="color: #2dce89;"></i>
+                                        <i class="fas fa-trash-alt" title="Delete" style="color: #f5365c;"></i>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="7" class="empty-task">
+                                    <i class="fas fa-calendar-alt" style="font-size: 40px; margin-bottom: 10px; display: block;"></i>
+                                    Belum ada task schedule. Klik "Tambah Task" untuk membuat task baru.
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </body>
 </html>
