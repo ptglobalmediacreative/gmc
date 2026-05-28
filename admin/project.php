@@ -26,7 +26,7 @@ $create_table = "CREATE TABLE IF NOT EXISTS projects (
     start_date DATE,
     end_date DATE,
     sales DECIMAL(15,2),
-    status ENUM('Planning', 'In Progress', 'Review', 'Completed', 'On Hold') DEFAULT 'Planning',
+    status ENUM('Planning', 'In Progress', 'Completed', 'On Hold') DEFAULT 'Planning',
     created_by INT(11),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )";
@@ -336,7 +336,6 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
 
         .status-Planning { background: #e3f2fd; color: #11cdef; }
         .status-InProgress { background: #fff3e0; color: #fb6340; }
-        .status-Review { background: #fde8e8; color: #f5365c; }
         .status-Completed { background: #e3f5ec; color: #2dce89; }
         .status-OnHold { background: #eef2f7; color: #8898aa; }
 
@@ -518,7 +517,6 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     <option value="">Semua Status</option>
                     <option value="Planning" <?php echo $status_filter == 'Planning' ? 'selected' : ''; ?>>Planning</option>
                     <option value="In Progress" <?php echo $status_filter == 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
-                    <option value="Review" <?php echo $status_filter == 'Review' ? 'selected' : ''; ?>>Review</option>
                     <option value="Completed" <?php echo $status_filter == 'Completed' ? 'selected' : ''; ?>>Completed</option>
                     <option value="On Hold" <?php echo $status_filter == 'On Hold' ? 'selected' : ''; ?>>On Hold</option>
                 </select>
@@ -630,7 +628,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     <input type="date" name="end_date">
                 </div>
                 <div class="form-group">
-                    <label>Sales / Nilai Project</label>
+                    <label>Sales</label>
                     <input type="number" name="sales" step="1000000" placeholder="Masukkan nominal sales">
                 </div>
                 <div class="form-group">
@@ -638,7 +636,6 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     <select name="status">
                         <option value="Planning">Planning</option>
                         <option value="In Progress">In Progress</option>
-                        <option value="Review">Review</option>
                         <option value="Completed">Completed</option>
                         <option value="On Hold">On Hold</option>
                     </select>
@@ -683,7 +680,6 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     <select name="status" id="edit_status">
                         <option value="Planning">Planning</option>
                         <option value="In Progress">In Progress</option>
-                        <option value="Review">Review</option>
                         <option value="Completed">Completed</option>
                         <option value="On Hold">On Hold</option>
                     </select>
