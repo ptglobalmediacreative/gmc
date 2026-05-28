@@ -576,6 +576,11 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </td>
+                                    <td>
+                                        <button class="btn-detail" onclick="window.location.href='detail_project.php?id=<?php echo $row['id']; ?>'">
+                                            <i class="fas fa-eye"></i> Detail
+                                        </button>
+                                    </td>
                                 <?php endif; ?>
                             </tr>
                         <?php endwhile; ?>
