@@ -17,8 +17,8 @@ if (session_status() === PHP_SESSION_NONE) {
         <a href="staff.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'staff.php' ? 'active' : ''; ?>">
             <i class="fas fa-users"></i> Staff
         </a>
-        <a href="ulasan.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'ulasan.php' ? 'active' : ''; ?>">
-            <i class="fas fa-star"></i> Project
+        <a href="ulasan.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'project.php' ? 'active' : ''; ?>">
+            <i class="fas fa-project-diagram"></i> Project
         </a>
         <a href="analisis.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'analisis.php' ? 'active' : ''; ?>">
             <i class="fas fa-chart-line"></i> Task
