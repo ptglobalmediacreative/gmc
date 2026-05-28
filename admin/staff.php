@@ -494,9 +494,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <?php endif; ?>
 
         <div class="staff-header">
-            <button class="btn-add" onclick="openAddModal()">
-                <i class="fas fa-plus"></i> Tambah Staff
-            </button>
             <form method="GET" action="" class="search-box">
                 <input type="text" name="search" placeholder="Cari staff..." value="<?php echo htmlspecialchars($search); ?>">
                 <button type="submit"><i class="fas fa-search"></i> Cari</button>
