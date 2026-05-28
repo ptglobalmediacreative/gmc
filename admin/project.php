@@ -25,7 +25,7 @@ $create_table = "CREATE TABLE IF NOT EXISTS projects (
     client_name VARCHAR(255) NOT NULL,
     start_date DATE,
     end_date DATE,
-    pic VARCHAR(255),
+    sales VARCHAR(255),
     status ENUM('Planning', 'In Progress', 'Completed', 'On Hold') DEFAULT 'Planning',
     created_by INT(11),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -33,7 +33,7 @@ $create_table = "CREATE TABLE IF NOT EXISTS projects (
 
 mysqli_query($conn, $create_table);
 
-// Ambil semua staff untuk pilihan PIC
+// Ambil semua staff untuk pilihan sales
 $staff_query = "SELECT id, name, role FROM users ORDER BY name ASC";
 $staff_result = mysqli_query($conn, $staff_query);
 $staff_list = [];
@@ -53,7 +53,7 @@ $status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET
 // Query untuk mengambil data project
 $where = "";
 if (!empty($search)) {
-    $where .= " WHERE (kode LIKE '%$search%' OR client_name LIKE '%$search%' OR pic LIKE '%$search%')";
+    $where .= " WHERE (kode LIKE '%$search%' OR client_name LIKE '%$search%' OR sales LIKE '%$search%')";
 }
 if (!empty($status_filter)) {
     $where .= (empty($where) ? " WHERE" : " AND") . " status = '$status_filter'";
@@ -79,12 +79,12 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             $client_name = mysqli_real_escape_string($conn, $_POST['client_name']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $end_date = mysqli_real_escape_string($conn, $_POST['end_date']);
-            $pic = mysqli_real_escape_string($conn, $_POST['pic']);
+            $sales = mysqli_real_escape_string($conn, $_POST['sales']);
             $status = mysqli_real_escape_string($conn, $_POST['status']);
             $created_by = $_SESSION['user_id'];
             
-            $insert = "INSERT INTO projects (kode, client_name, start_date, end_date, pic, status, created_by) 
-                       VALUES ('$kode', '$client_name', '$start_date', '$end_date', '$pic', '$status', '$created_by')";
+            $insert = "INSERT INTO projects (kode, client_name, start_date, end_date, sales, status, created_by) 
+                       VALUES ('$kode', '$client_name', '$start_date', '$end_date', '$sales', '$status', '$created_by')";
             if (mysqli_query($conn, $insert)) {
                 $success = "Project berhasil ditambahkan!";
                 echo "<script>window.location.href='project.php';</script>";
@@ -99,7 +99,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             $client_name = mysqli_real_escape_string($conn, $_POST['client_name']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $end_date = mysqli_real_escape_string($conn, $_POST['end_date']);
-            $pic = mysqli_real_escape_string($conn, $_POST['pic']);
+            $sales = mysqli_real_escape_string($conn, $_POST['sales']);
             $status = mysqli_real_escape_string($conn, $_POST['status']);
             
             $update = "UPDATE projects SET 
@@ -107,7 +107,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                        client_name='$client_name', 
                        start_date='$start_date', 
                        end_date='$end_date', 
-                       pic='$pic', 
+                       sales='$sales', 
                        status='$status' 
                        WHERE id=$id";
             
@@ -518,7 +518,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
             <div class="filter-box">
                 <form method="GET" action="" class="search-box">
-                    <input type="text" name="search" placeholder="Cari kode/client/PIC..." value="<?php echo htmlspecialchars($search); ?>">
+                    <input type="text" name="search" placeholder="Cari kode/client/sales..." value="<?php echo htmlspecialchars($search); ?>">
                     <button type="submit"><i class="fas fa-search"></i> Cari</button>
                 </form>
                 <select onchange="location.href='?status='+this.value+'&search=<?php echo urlencode($search); ?>'">
@@ -543,7 +543,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                         <th>Client</th>
                         <th>Start Date</th>
                         <th>End Date</th>
-                        <th>PIC</th>
+                        <th>Sales</th>
                         <th>Status</th>
                         <?php if ($user_role == 'Director'): ?>
                             <th>Aksi</th>
@@ -560,7 +560,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <td><?php echo htmlspecialchars($row['client_name']); ?></td>
                                 <td><?php echo $row['start_date'] ? date('d M Y', strtotime($row['start_date'])) : '-'; ?></td>
                                 <td><?php echo $row['end_date'] ? date('d M Y', strtotime($row['end_date'])) : '-'; ?></td
-                                <td><?php echo htmlspecialchars($row['pic']); ?></td
+                                <td><?php echo htmlspecialchars($row['sales']); ?></td
                                 <td>
                                     <span class="status-badge status-<?php echo str_replace(' ', '', $row['status']); ?>">
                                         <?php echo $row['status']; ?>
@@ -636,9 +636,9 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     <input type="date" name="end_date">
                 </div>
                 <div class="form-group">
-                    <label>PIC (Person In Charge)</label>
-                    <select name="pic" required>
-                        <option value="">-- Pilih PIC --</option>
+                    <label>sales (Person In Charge)</label>
+                    <select name="sales" required>
+                        <option value="">-- Pilih Sales --</option>
                         <?php foreach ($staff_list as $staff): ?>
                             <option value="<?php echo htmlspecialchars($staff['name']); ?>">
                                 <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
@@ -687,9 +687,9 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     <input type="date" name="end_date" id="edit_end_date">
                 </div>
                 <div class="form-group">
-                    <label>PIC (Person In Charge)</label>
-                    <select name="pic" id="edit_pic" required>
-                        <option value="">-- Pilih PIC --</option>
+                    <label>sales (Person In Charge)</label>
+                    <select name="sales" id="edit_sales" required>
+                        <option value="">-- Pilih sales --</option>
                         <?php foreach ($staff_list as $staff): ?>
                             <option value="<?php echo htmlspecialchars($staff['name']); ?>">
                                 <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
@@ -748,7 +748,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                     document.getElementById('edit_client_name').value = data.client_name;
                     document.getElementById('edit_start_date').value = data.start_date;
                     document.getElementById('edit_end_date').value = data.end_date;
-                    document.getElementById('edit_pic').value = data.pic;
+                    document.getElementById('edit_sales').value = data.sales;
                     document.getElementById('edit_status').value = data.status;
                     document.getElementById('editModal').classList.add('show');
                 });
