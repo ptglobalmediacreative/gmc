@@ -198,6 +198,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
         
+        elseif ($action == 'bulk_delete') {
+            $task_ids = $_POST['task_ids'];
+            $ids_array = explode(',', $task_ids);
+            $success_count = 0;
+            foreach ($ids_array as $tid) {
+                $tid = (int)$tid;
+                $delete = "DELETE FROM tasks WHERE id=$tid AND project_id=$project_id";
+                if (mysqli_query($conn, $delete)) {
+                    $success_count++;
+                }
+            }
+            $success = "$success_count task berhasil dihapus!";
+            echo "<script>window.location.href='taskdetail.php?project_id=$project_id';</script>";
+        }
+        
         elseif ($action == 'update_status') {
             $id = (int)$_POST['id'];
             $status = mysqli_real_escape_string($conn, $_POST['status']);
@@ -435,6 +450,23 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
 
         .btn-add:hover {
             background: #2a5298;
+        }
+
+        .btn-delete-task {
+            background: #f5365c;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .btn-delete-task:hover {
+            background: #c82333;
         }
 
         .filter-box {
@@ -737,9 +769,14 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
         <?php endif; ?>
 
         <div class="task-header">
-            <button class="btn-add" onclick="openAddModal()">
-                <i class="fas fa-plus"></i> Tambah Task
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-add" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i> Tambah Task
+                </button>
+                <button class="btn-delete-task" onclick="openBulkDeleteModal()">
+                    <i class="fas fa-trash-alt"></i> Hapus Task
+                </button>
+            </div>
             <div class="filter-box">
                 <select onchange="location.href='?project_id=<?php echo $project_id; ?>&status='+this.value">
                     <option value="">Semua Status</option>
@@ -756,6 +793,9 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
             <table>
                 <thead>
                     <tr>
+                        <th style="width: 30px;">
+                            <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
+                        </th>
                         <th>No</th>
                         <th>Task</th>
                         <th>Assigned To</th>
@@ -770,6 +810,9 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                         <?php $no = $offset + 1; ?>
                         <?php while ($task = mysqli_fetch_assoc($tasks_result)): ?>
                             <tr>
+                                <td style="text-align: center;">
+                                    <input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>">
+                                </td
                                 <td><?php echo $no++; ?></td>
                                 <td>
                                     <strong><?php echo htmlspecialchars($task['task_name']); ?></strong><br>
@@ -847,7 +890,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" style="text-align: center; padding: 50px;">
+                            <td colspan="8" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-tasks" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada task. Klik "Tambah Task" untuk membuat task baru.
                              </td
@@ -1006,6 +1049,25 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
         </div>
     </div>
 
+    <!-- Modal Hapus Massal (Bulk Delete) -->
+    <div id="bulkDeleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Hapus Task</h3>
+                <span class="close-modal" onclick="closeBulkDeleteModal()">&times;</span>
+            </div>
+            <form method="POST" action="" id="bulkDeleteForm">
+                <input type="hidden" name="action" value="bulk_delete">
+                <input type="hidden" name="task_ids" id="bulk_delete_ids">
+                <p>Apakah Anda yakin ingin menghapus <strong id="bulk_delete_count"></strong> task yang dipilih?</p>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn-submit" style="background: #f5365c;">Ya, Hapus</button>
+                    <button type="button" class="btn-submit" onclick="closeBulkDeleteModal()" style="background: #8898aa;">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         function openAddModal() {
             document.getElementById('addModal').classList.add('show');
@@ -1046,6 +1108,35 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
         
         function closeDeleteModal() {
             document.getElementById('deleteModal').classList.remove('show');
+        }
+        
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.task-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        }
+        
+        function openBulkDeleteModal() {
+            const checkboxes = document.querySelectorAll('.task-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Pilih task yang ingin dihapus terlebih dahulu!');
+                return;
+            }
+            
+            const ids = [];
+            checkboxes.forEach(checkbox => {
+                ids.push(checkbox.value);
+            });
+            
+            document.getElementById('bulk_delete_ids').value = ids.join(',');
+            document.getElementById('bulk_delete_count').innerHTML = checkboxes.length;
+            document.getElementById('bulkDeleteModal').classList.add('show');
+        }
+        
+        function closeBulkDeleteModal() {
+            document.getElementById('bulkDeleteModal').classList.remove('show');
         }
         
         window.onclick = function(event) {
