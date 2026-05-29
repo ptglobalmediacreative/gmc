@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $id = (int)$_GET['id'];
-$query = "SELECT * FROM tasks WHERE id = $id";
+$query = "SELECT id, start_date, due_date FROM tasks WHERE id = $id";
 $result = mysqli_query($conn, $query);
 $data = mysqli_fetch_assoc($result);
 

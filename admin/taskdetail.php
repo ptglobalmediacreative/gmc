@@ -40,7 +40,7 @@ $create_table = "CREATE TABLE IF NOT EXISTS tasks (
     description TEXT,
     assigned_to VARCHAR(255),
     priority ENUM('Low', 'Medium', 'High', 'Urgent', 'Done') DEFAULT 'Medium',
-    status ENUM('To Do', 'In Progress', 'Review', 'Done') DEFAULT 'To Do',
+    status ENUM('To Do', 'In Progress', 'Review', 'Done') DEFAULT 'In Progress',
     start_date DATE,
     due_date DATE,
     created_by INT(11),
@@ -92,14 +92,6 @@ while ($task_row = mysqli_fetch_assoc($update_priority_result)) {
 $update_done_priority = "UPDATE tasks SET priority = 'Done' WHERE project_id = $project_id AND status = 'Done'";
 mysqli_query($conn, $update_done_priority);
 
-// Ambil semua staff untuk pilihan assigned_to
-$staff_query = "SELECT id, name, role FROM users ORDER BY name ASC";
-$staff_result = mysqli_query($conn, $staff_query);
-$staff_list = [];
-while ($staff = mysqli_fetch_assoc($staff_result)) {
-    $staff_list[] = $staff;
-}
-
 // Pagination untuk tasks
 $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -140,11 +132,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $action = $_POST['action'];
         
         if ($action == 'add') {
-            $task_name = mysqli_real_escape_string($conn, $_POST['task_name']);
-            $description = mysqli_real_escape_string($conn, $_POST['description']);
-            $assigned_to = mysqli_real_escape_string($conn, $_POST['assigned_to']);
-            $priority = mysqli_real_escape_string($conn, $_POST['priority']);
-            $status = mysqli_real_escape_string($conn, $_POST['status']);
+            $task_name = "Task " . date('Y-m-d H:i:s');
+            $description = "";
+            $assigned_to = $_SESSION['name'];
+            $priority = "Low";
+            $status = "In Progress";
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
             $created_by = $user_id;
@@ -161,20 +153,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         elseif ($action == 'edit') {
             $id = (int)$_POST['id'];
-            $task_name = mysqli_real_escape_string($conn, $_POST['task_name']);
-            $description = mysqli_real_escape_string($conn, $_POST['description']);
-            $assigned_to = mysqli_real_escape_string($conn, $_POST['assigned_to']);
-            $priority = mysqli_real_escape_string($conn, $_POST['priority']);
-            $status = mysqli_real_escape_string($conn, $_POST['status']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
             
             $update = "UPDATE tasks SET 
-                       task_name='$task_name', 
-                       description='$description', 
-                       assigned_to='$assigned_to', 
-                       priority='$priority', 
-                       status='$status', 
                        start_date='$start_date', 
                        due_date='$due_date' 
                        WHERE id=$id";
@@ -609,11 +591,9 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
         .modal-content {
             background: white;
             border-radius: 12px;
-            width: 550px;
+            width: 500px;
             max-width: 90%;
             padding: 25px;
-            max-height: 90vh;
-            overflow-y: auto;
         }
 
         .modal-header {
@@ -647,17 +627,12 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
             font-weight: 500;
         }
 
-        .form-group input, .form-group select, .form-group textarea {
+        .form-group input {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
         }
 
         .btn-submit {
@@ -921,7 +896,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
         <?php endif; ?>
     </div>
 
-    <!-- Modal Tambah Task -->
+    <!-- Modal Tambah Task (Sederhana: Hanya Start Date & Due Date) -->
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -931,42 +906,8 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
             <form method="POST" action="">
                 <input type="hidden" name="action" value="add">
                 <div class="form-group">
-                    <label>Nama Task *</label>
-                    <input type="text" name="task_name" required>
-                </div>
-                <div class="form-group">
-                    <label>Deskripsi</label>
-                    <textarea name="description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Assign To</label>
-                    <select name="assigned_to">
-                        <option value="">-- Pilih --</option>
-                        <?php foreach ($staff_list as $staff): ?>
-                            <option value="<?php echo htmlspecialchars($staff['name']); ?>">
-                                <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Priority (Akan otomatis berdasarkan deadline)</label>
-                    <select name="priority" disabled style="background: #f0f0f0;">
-                        <option value="Low">Low (10-8 hari)</option>
-                        <option value="Medium">Medium (8-5 hari)</option>
-                        <option value="High">High (5-3 hari)</option>
-                        <option value="Urgent">Urgent (3-1 hari)</option>
-                    </select>
-                    <small style="color: #8898aa;">Priority akan otomatis terisi berdasarkan deadline</small>
-                </div>
-                <div class="form-group">
-                    <label>Status</label>
-                    <select name="status">
-                        <option value="To Do">To Do</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Review">Review</option>
-                        <option value="Done">Done</option>
-                    </select>
+                    <label>Kode Project</label>
+                    <input type="text" value="<?php echo htmlspecialchars($project['kode']); ?>" disabled style="background: #f0f0f0;">
                 </div>
                 <div class="form-group">
                     <label>Start Date</label>
@@ -981,7 +922,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
         </div>
     </div>
 
-    <!-- Modal Edit Task -->
+    <!-- Modal Edit Task (Sederhana: Hanya Start Date & Due Date) -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -992,32 +933,8 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                 <input type="hidden" name="action" value="edit">
                 <input type="hidden" name="id" id="edit_id">
                 <div class="form-group">
-                    <label>Nama Task</label>
-                    <input type="text" name="task_name" id="edit_task_name" required>
-                </div>
-                <div class="form-group">
-                    <label>Deskripsi</label>
-                    <textarea name="description" id="edit_description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Assign To</label>
-                    <select name="assigned_to" id="edit_assigned_to">
-                        <option value="">-- Pilih --</option>
-                        <?php foreach ($staff_list as $staff): ?>
-                            <option value="<?php echo htmlspecialchars($staff['name']); ?>">
-                                <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Status</label>
-                    <select name="status" id="edit_status">
-                        <option value="To Do">To Do</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Review">Review</option>
-                        <option value="Done">Done</option>
-                    </select>
+                    <label>Kode Project</label>
+                    <input type="text" value="<?php echo htmlspecialchars($project['kode']); ?>" disabled style="background: #f0f0f0;">
                 </div>
                 <div class="form-group">
                     <label>Start Date</label>
@@ -1084,10 +1001,6 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
-                    document.getElementById('edit_task_name').value = data.task_name;
-                    document.getElementById('edit_description').value = data.description;
-                    document.getElementById('edit_assigned_to').value = data.assigned_to;
-                    document.getElementById('edit_status').value = data.status;
                     document.getElementById('edit_start_date').value = data.start_date;
                     document.getElementById('edit_due_date').value = data.due_date;
                     document.getElementById('editModal').classList.add('show');
