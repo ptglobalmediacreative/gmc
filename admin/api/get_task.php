@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $id = (int)$_GET['id'];
-$query = "SELECT t.*, p.kode as kode FROM tasks t LEFT JOIN projects p ON t.project_id = p.id WHERE t.id = $id";
+$query = "SELECT * FROM tasks WHERE id = $id";
 $result = mysqli_query($conn, $query);
 $data = mysqli_fetch_assoc($result);
 
