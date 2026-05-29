@@ -592,7 +592,6 @@ $stats = mysqli_fetch_assoc($stats_result);
         <!-- Project Info -->
         <div class="project-info">
             <h2><i class="fas fa-folder-open"></i> <?php echo htmlspecialchars($project['kode']); ?> - <?php echo htmlspecialchars($project['client_name']); ?></h2>
-            <p>Sales: <?php echo htmlspecialchars($project['sales']); ?> | Status: <?php echo $project['status']; ?></p>
             <a href="project.php" class="btn-back"><i class="fas fa-arrow-left"></i> Kembali ke Project</a>
         </div>
 
