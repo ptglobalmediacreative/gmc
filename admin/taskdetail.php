@@ -30,8 +30,6 @@ $create_table = "CREATE TABLE IF NOT EXISTS tasks (
     id INT(11) AUTO_INCREMENT PRIMARY KEY,
     project_id INT(11) NOT NULL,
     task_name VARCHAR(255) NOT NULL,
-    description TEXT,
-    assigned_to VARCHAR(255),
     priority ENUM('Low', 'Medium', 'High', 'Urgent', 'Done') DEFAULT 'Medium',
     status ENUM('To Do', 'In Progress', 'Review', 'Done') DEFAULT 'In Progress',
     start_date DATE,
@@ -161,12 +159,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             $priority = "Low";
             $status = "In Progress";
-            $description = "";
-            $assigned_to = $_SESSION['name'];
             $created_by = $user_id;
             
-            $insert = "INSERT INTO tasks (project_id, task_name, description, assigned_to, priority, status, start_date, due_date, created_by) 
-                       VALUES ('$project_id_baru', '$task_name', '$description', '$assigned_to', '$priority', '$status', '$start_date', '$due_date', '$created_by')";
+            $insert = "INSERT INTO tasks (project_id, task_name, priority, status, start_date, due_date, created_by) 
+                       VALUES ('$project_id_baru', '$task_name', '$priority', '$status', '$start_date', '$due_date', '$created_by')";
             if (mysqli_query($conn, $insert)) {
                 $success = "Task berhasil ditambahkan!";
                 echo "<script>window.location.href='taskdetail.php?project_id=$project_id_baru';</script>";
@@ -775,20 +771,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <tr>
                                 <td class="checkbox-col">
                                     <input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>">
-                                </td>
+                                </td
                                 <td><?php echo $no++; ?></td>
                                 <td>
                                     <a href="detail_task.php?id=<?php echo $task['id']; ?>" style="color: #1e3c72; text-decoration: none; font-weight: bold;">
                                         <?php echo htmlspecialchars($task['task_name']); ?>
                                     </a>
-                                </td>
-                                <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td>
+                                </td
+                                <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td
                                 <td>
                                     <?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?>
                                     <?php if ($task['due_date'] && strtotime($task['due_date']) < time()): ?>
                                         <br><small style="color: #f5365c;">(Terlewat)</small>
                                     <?php endif; ?>
-                                </td>
+                                </td
                                 <td>
                                     <?php 
                                     $priority_class = '';
@@ -804,7 +800,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : ($task['priority'] == 'Done' ? 'fa-check-circle' : 'fa-minus'))); ?>"></i>
                                         <?php echo $task['priority']; ?>
                                     </span>
-                                </td>
+                                </td
                                 <td>
                                     <?php 
                                     $status_class = '';
@@ -819,7 +815,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                         <?php echo $task['status']; ?>
                                     </span>
-                                </td>
+                                </td
                                 <td>
                                     <form method="POST" style="display: inline;">
                                         <input type="hidden" name="action" value="update_status">
@@ -829,7 +825,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                             <option value="Done" <?php echo $task['status'] == 'Done' ? 'selected' : ''; ?>>Done</option>
                                         </select>
                                     </form>
-                                </td>
+                                </td
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
@@ -837,7 +833,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <td colspan="8" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-tasks" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada task. Klik "Tambah Task" untuk membuat task baru.
-                            </td>
+                             </td
                         </tr>
                     <?php endif; ?>
                 </tbody>
