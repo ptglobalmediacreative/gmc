@@ -212,15 +212,15 @@ FROM tasks WHERE project_id = $project_id";
 $stats_result = mysqli_query($conn, $stats_query);
 $stats = mysqli_fetch_assoc($stats_result);
 
-// Hitung priority stats (Medium + High + Urgent)
-$medium_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Medium'");
+// Hitung priority stats (Medium + High + Urgent) - HANYA UNTUK STATUS YANG BELUM DONE
+$medium_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Medium' AND status != 'Done'");
 $medium = mysqli_fetch_assoc($medium_count);
-$high_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'High'");
+$high_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'High' AND status != 'Done'");
 $high = mysqli_fetch_assoc($high_count);
-$urgent_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Urgent'");
+$urgent_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Urgent' AND status != 'Done'");
 $urgent = mysqli_fetch_assoc($urgent_count);
 
-// Total priority (Medium + High + Urgent)
+// Total priority (Medium + High + Urgent) - hanya untuk task yang belum Done
 $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['total'] ?? 0);
 ?>
 
@@ -759,7 +759,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                         <th>Priority</th>
                         <th>Status</th>
                         <th>Aksi</th>
-                    </tr>
+                    <tr>
                 </thead>
                 <tbody>
                     <?php if (mysqli_num_rows($tasks_result) > 0): ?>
