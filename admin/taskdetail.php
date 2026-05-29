@@ -4,6 +4,9 @@ ini_set('display_errors', 1);
 require_once "config.php";
 session_start();
 
+// Set zona waktu Jakarta
+date_default_timezone_set('Asia/Jakarta');
+
 // Cek login
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -45,6 +48,46 @@ $create_table = "CREATE TABLE IF NOT EXISTS tasks (
 )";
 mysqli_query($conn, $create_table);
 
+// Fungsi untuk menghitung priority berdasarkan deadline
+function calculatePriority($due_date) {
+    if (empty($due_date)) {
+        return 'Low';
+    }
+    
+    $today = new DateTime();
+    $deadline = new DateTime($due_date);
+    $interval = $today->diff($deadline);
+    $days_left = (int)$interval->format('%r%a');
+    
+    // Jika sudah melewati deadline
+    if ($days_left < 0) {
+        return 'Urgent';
+    }
+    
+    // Hitung priority berdasarkan sisa hari
+    if ($days_left >= 8) {
+        return 'Low';
+    } elseif ($days_left >= 5 && $days_left <= 7) {
+        return 'Medium';
+    } elseif ($days_left >= 3 && $days_left <= 4) {
+        return 'High';
+    } elseif ($days_left >= 1 && $days_left <= 2) {
+        return 'Urgent';
+    } else {
+        return 'Low';
+    }
+}
+
+// Update priority semua task berdasarkan deadline
+$update_priority_query = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
+$update_priority_result = mysqli_query($conn, $update_priority_query);
+while ($task_row = mysqli_fetch_assoc($update_priority_result)) {
+    $new_priority = calculatePriority($task_row['due_date']);
+    $task_id = $task_row['id'];
+    $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id";
+    mysqli_query($conn, $update_priority);
+}
+
 // Ambil semua staff untuk pilihan assigned_to
 $staff_query = "SELECT id, name, role FROM users ORDER BY name ASC";
 $staff_result = mysqli_query($conn, $staff_query);
@@ -67,7 +110,16 @@ if (!empty($status_filter)) {
     $where .= " AND status = '$status_filter'";
 }
 
-$tasks_query = "SELECT * FROM tasks $where ORDER BY due_date ASC, priority ASC LIMIT $offset, $limit";
+$tasks_query = "SELECT * FROM tasks $where ORDER BY 
+    CASE priority 
+        WHEN 'Urgent' THEN 1 
+        WHEN 'High' THEN 2 
+        WHEN 'Medium' THEN 3 
+        WHEN 'Low' THEN 4 
+        ELSE 5 
+    END ASC, 
+    due_date ASC 
+    LIMIT $offset, $limit";
 $tasks_result = mysqli_query($conn, $tasks_query);
 
 // Hitung total tasks
@@ -151,7 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Hitung statistik tasks (hanya In Progress dan Done)
+// Hitung statistik tasks
 $stats_query = "SELECT 
     COUNT(*) as total,
     SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
@@ -159,6 +211,16 @@ $stats_query = "SELECT
 FROM tasks WHERE project_id = $project_id";
 $stats_result = mysqli_query($conn, $stats_query);
 $stats = mysqli_fetch_assoc($stats_result);
+
+// Hitung priority stats
+$urgent_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Urgent'");
+$urgent = mysqli_fetch_assoc($urgent_count);
+$high_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'High'");
+$high = mysqli_fetch_assoc($high_count);
+$medium_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Medium'");
+$medium = mysqli_fetch_assoc($medium_count);
+$low_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Low'");
+$low = mysqli_fetch_assoc($low_count);
 ?>
 
 <!DOCTYPE html>
@@ -293,10 +355,6 @@ $stats = mysqli_fetch_assoc($stats_result);
             margin-bottom: 8px;
         }
 
-        .project-info p {
-            opacity: 0.9;
-        }
-
         .btn-back {
             background: rgba(255,255,255,0.2);
             color: white;
@@ -314,9 +372,10 @@ $stats = mysqli_fetch_assoc($stats_result);
             background: rgba(255,255,255,0.3);
         }
 
+        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
             margin-bottom: 25px;
         }
@@ -338,7 +397,6 @@ $stats = mysqli_fetch_assoc($stats_result);
         .stat-card .number {
             font-size: 24px;
             font-weight: bold;
-            color: #1e3c72;
         }
 
         .task-header {
@@ -408,6 +466,7 @@ $stats = mysqli_fetch_assoc($stats_result);
             font-size: 14px;
         }
 
+        /* Priority Styles */
         .priority-urgent { 
             background: #fde8e8; 
             color: #f5365c; 
@@ -445,6 +504,7 @@ $stats = mysqli_fetch_assoc($stats_result);
             font-size: 11px;
         }
 
+        /* Status Badge Styles */
         .status-badge {
             padding: 4px 10px;
             border-radius: 20px;
@@ -452,11 +512,22 @@ $stats = mysqli_fetch_assoc($stats_result);
             font-weight: bold;
             display: inline-block;
         }
-
-        .status-ToDo { background: #eef2f7; color: #8898aa; }
-        .status-InProgress { background: #fff3e0; color: #fb6340; }
-        .status-Review { background: #e3f2fd; color: #11cdef; }
-        .status-Done { background: #e3f5ec; color: #2dce89; }
+        .status-ToDo { 
+            background: #eef2f7; 
+            color: #8898aa; 
+        }
+        .status-InProgress { 
+            background: #fff3e0; 
+            color: #fb6340; 
+        }
+        .status-Review { 
+            background: #e3f2fd; 
+            color: #11cdef; 
+        }
+        .status-Done { 
+            background: #e3f5ec; 
+            color: #2dce89; 
+        }
 
         .action-buttons {
             display: flex;
@@ -627,11 +698,11 @@ $stats = mysqli_fetch_assoc($stats_result);
             <a href="project.php" class="btn-back"><i class="fas fa-arrow-left"></i> Kembali ke Project</a>
         </div>
 
-        <!-- Stats -->
+        <!-- Stats Grid -->
         <div class="stats-grid">
             <div class="stat-card">
                 <h4>Total Task</h4>
-                <div class="number"><?php echo $stats['total'] ?? 0; ?></div>
+                <div class="number" style="color: #1e3c72;"><?php echo $stats['total'] ?? 0; ?></div>
             </div>
             <div class="stat-card">
                 <h4>In Progress</h4>
@@ -640,6 +711,10 @@ $stats = mysqli_fetch_assoc($stats_result);
             <div class="stat-card">
                 <h4>Done</h4>
                 <div class="number" style="color: #2dce89;"><?php echo $stats['done'] ?? 0; ?></div>
+            </div>
+            <div class="stat-card">
+                <h4>Urgent Priority</h4>
+                <div class="number" style="color: #f5365c;"><?php echo $urgent['total'] ?? 0; ?></div>
             </div>
         </div>
 
@@ -690,14 +765,55 @@ $stats = mysqli_fetch_assoc($stats_result);
                                     <small style="color: #8898aa;"><?php echo htmlspecialchars(substr($task['description'], 0, 50)); ?>...</small>
                                 </td>
                                 <td><?php echo htmlspecialchars($task['assigned_to']); ?></td>
-                                <td><?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?></td>
                                 <td>
-                                    <span class="priority-<?php echo strtolower($task['priority']); ?>">
+                                    <?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?>
+                                    <?php if ($task['due_date'] && strtotime($task['due_date']) < time()): ?>
+                                        <br><small style="color: #f5365c;">(Terlewat)</small>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php 
+                                    $priority_class = '';
+                                    switch(strtolower($task['priority'])) {
+                                        case 'urgent':
+                                            $priority_class = 'priority-urgent';
+                                            break;
+                                        case 'high':
+                                            $priority_class = 'priority-high';
+                                            break;
+                                        case 'medium':
+                                            $priority_class = 'priority-medium';
+                                            break;
+                                        case 'low':
+                                            $priority_class = 'priority-low';
+                                            break;
+                                    }
+                                    ?>
+                                    <span class="<?php echo $priority_class; ?>">
+                                        <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : 'fa-minus')); ?>"></i>
                                         <?php echo $task['priority']; ?>
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="status-badge status-<?php echo str_replace(' ', '', $task['status']); ?>">
+                                    <?php 
+                                    $status_class = '';
+                                    switch(strtolower($task['status'])) {
+                                        case 'to do':
+                                            $status_class = 'status-ToDo';
+                                            break;
+                                        case 'in progress':
+                                            $status_class = 'status-InProgress';
+                                            break;
+                                        case 'review':
+                                            $status_class = 'status-Review';
+                                            break;
+                                        case 'done':
+                                            $status_class = 'status-Done';
+                                            break;
+                                    }
+                                    ?>
+                                    <span class="status-badge <?php echo $status_class; ?>">
+                                        <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                         <?php echo $task['status']; ?>
                                     </span>
                                 </td>
@@ -781,13 +897,14 @@ $stats = mysqli_fetch_assoc($stats_result);
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Priority</label>
-                    <select name="priority">
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                        <option value="Urgent">Urgent</option>
+                    <label>Priority (Akan otomatis berdasarkan deadline)</label>
+                    <select name="priority" disabled style="background: #f0f0f0;">
+                        <option value="Low">Low (10-8 hari)</option>
+                        <option value="Medium">Medium (8-5 hari)</option>
+                        <option value="High">High (5-3 hari)</option>
+                        <option value="Urgent">Urgent (3-1 hari)</option>
                     </select>
+                    <small style="color: #8898aa;">Priority akan otomatis terisi berdasarkan deadline</small>
                 </div>
                 <div class="form-group">
                     <label>Status</label>
@@ -803,8 +920,8 @@ $stats = mysqli_fetch_assoc($stats_result);
                     <input type="date" name="start_date">
                 </div>
                 <div class="form-group">
-                    <label>Due Date</label>
-                    <input type="date" name="due_date">
+                    <label>Due Date *</label>
+                    <input type="date" name="due_date" required>
                 </div>
                 <button type="submit" class="btn-submit">Simpan Task</button>
             </form>
@@ -841,15 +958,6 @@ $stats = mysqli_fetch_assoc($stats_result);
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Priority</label>
-                    <select name="priority" id="edit_priority">
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                        <option value="Urgent">Urgent</option>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label>Status</label>
                     <select name="status" id="edit_status">
                         <option value="To Do">To Do</option>
@@ -864,7 +972,7 @@ $stats = mysqli_fetch_assoc($stats_result);
                 </div>
                 <div class="form-group">
                     <label>Due Date</label>
-                    <input type="date" name="due_date" id="edit_due_date">
+                    <input type="date" name="due_date" id="edit_due_date" required>
                 </div>
                 <button type="submit" class="btn-submit">Update Task</button>
             </form>
@@ -907,7 +1015,6 @@ $stats = mysqli_fetch_assoc($stats_result);
                     document.getElementById('edit_task_name').value = data.task_name;
                     document.getElementById('edit_description').value = data.description;
                     document.getElementById('edit_assigned_to').value = data.assigned_to;
-                    document.getElementById('edit_priority').value = data.priority;
                     document.getElementById('edit_status').value = data.status;
                     document.getElementById('edit_start_date').value = data.start_date;
                     document.getElementById('edit_due_date').value = data.due_date;
