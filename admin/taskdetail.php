@@ -557,16 +557,6 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
             align-items: center;
         }
 
-        .action-buttons button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .btn-edit { color: #11cdef; }
-        .btn-delete { color: #f5365c; }
-
         .modal {
             display: none;
             position: fixed;
@@ -842,16 +832,10 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                                     </span>
                                 </td>
                                 <td class="action-buttons">
-                                    <button class="btn-edit" onclick="openEditModal(<?php echo $task['id']; ?>)">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn-delete" onclick="openDeleteModal(<?php echo $task['id']; ?>, '<?php echo addslashes($task['task_name']); ?>')">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
                                     <form method="POST" style="display: inline;" onsubmit="return confirm('Update status task?')">
                                         <input type="hidden" name="action" value="update_status">
                                         <input type="hidden" name="id" value="<?php echo $task['id']; ?>">
-                                        <select name="status" onchange="this.form.submit()" style="padding: 4px 8px; font-size: 11px; border-radius: 4px;">
+                                        <select name="status" onchange="this.form.submit()" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #ddd; cursor: pointer;">
                                             <option value="To Do" <?php echo $task['status'] == 'To Do' ? 'selected' : ''; ?>>To Do</option>
                                             <option value="In Progress" <?php echo $task['status'] == 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
                                             <option value="Review" <?php echo $task['status'] == 'Review' ? 'selected' : ''; ?>>Review</option>
