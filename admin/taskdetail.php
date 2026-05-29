@@ -228,23 +228,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $id = (int)$_POST['id'];
             $status = mysqli_real_escape_string($conn, $_POST['status']);
             
-            // Update status
             $update = "UPDATE tasks SET status='$status' WHERE id=$id";
             if (mysqli_query($conn, $update)) {
-                // Jika status berubah menjadi Done, update priority menjadi Done juga
                 if ($status == 'Done') {
                     mysqli_query($conn, "UPDATE tasks SET priority='Done' WHERE id=$id");
                 } else {
-                    // Jika tidak, update priority berdasarkan deadline
                     $task_data = mysqli_query($conn, "SELECT due_date FROM tasks WHERE id=$id");
                     $task_row = mysqli_fetch_assoc($task_data);
                     $due_date = $task_row['due_date'];
                     $new_priority = calculatePriority($due_date);
                     mysqli_query($conn, "UPDATE tasks SET priority='$new_priority' WHERE id=$id");
                 }
-                
                 $success = "Status task berhasil diupdate!";
-                // Refresh halaman tanpa redirect
                 echo "<script>window.location.reload();</script>";
             } else {
                 $error = "Gagal mengupdate status task: " . mysqli_error($conn);
@@ -752,9 +747,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <table>
                 <thead>
                     <tr>
-                        <th class="checkbox-col">
-                            <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
-                        </th>
+                        <th class="checkbox-col"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
                         <th>No</th>
                         <th>Judul</th>
                         <th>Start Date</th>
@@ -769,22 +762,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <?php $no = $offset + 1; ?>
                         <?php while ($task = mysqli_fetch_assoc($tasks_result)): ?>
                             <tr>
-                                <td class="checkbox-col">
-                                    <input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>">
-                                </td
+                                <td class="checkbox-col"><input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>"></td>
                                 <td><?php echo $no++; ?></td>
-                                <td>
-                                    <a href="detail_task.php?id=<?php echo $task['id']; ?>" style="color: #1e3c72; text-decoration: none; font-weight: bold;">
-                                        <?php echo htmlspecialchars($task['task_name']); ?>
-                                    </a>
-                                </td
-                                <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td
+                                <td><a href="detail_task.php?id=<?php echo $task['id']; ?>" style="color: #1e3c72; text-decoration: none; font-weight: bold;"><?php echo htmlspecialchars($task['task_name']); ?></a></td>
+                                <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td>
                                 <td>
                                     <?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?>
                                     <?php if ($task['due_date'] && strtotime($task['due_date']) < time()): ?>
                                         <br><small style="color: #f5365c;">(Terlewat)</small>
                                     <?php endif; ?>
-                                </td
+                                </td>
                                 <td>
                                     <?php 
                                     $priority_class = '';
@@ -800,7 +787,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : ($task['priority'] == 'Done' ? 'fa-check-circle' : 'fa-minus'))); ?>"></i>
                                         <?php echo $task['priority']; ?>
                                     </span>
-                                </td
+                                </td>
                                 <td>
                                     <?php 
                                     $status_class = '';
@@ -815,7 +802,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                         <?php echo $task['status']; ?>
                                     </span>
-                                </td
+                                </td>
                                 <td>
                                     <form method="POST" style="display: inline;">
                                         <input type="hidden" name="action" value="update_status">
@@ -825,7 +812,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                             <option value="Done" <?php echo $task['status'] == 'Done' ? 'selected' : ''; ?>>Done</option>
                                         </select>
                                     </form>
-                                </td
+                                </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
@@ -833,7 +820,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <td colspan="8" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-tasks" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada task. Klik "Tambah Task" untuk membuat task baru.
-                             </td
+                            </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
