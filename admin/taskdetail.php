@@ -17,19 +17,12 @@ $project_id = isset($_GET['project_id']) ? (int)$_GET['project_id'] : 0;
 $user_role = $_SESSION['role'];
 $user_id = $_SESSION['user_id'];
 
-if ($project_id == 0) {
-    header("Location: project.php");
-    exit();
-}
-
-// Ambil data project
-$project_query = "SELECT * FROM projects WHERE id = $project_id";
-$project_result = mysqli_query($conn, $project_query);
-$project = mysqli_fetch_assoc($project_result);
-
-if (!$project) {
-    header("Location: project.php");
-    exit();
+// Ambil data project jika ada project_id
+$project = null;
+if ($project_id > 0) {
+    $project_query = "SELECT * FROM projects WHERE id = $project_id";
+    $project_result = mysqli_query($conn, $project_query);
+    $project = mysqli_fetch_assoc($project_result);
 }
 
 // Buat tabel tasks jika belum ada
@@ -78,19 +71,21 @@ function calculatePriority($due_date) {
     }
 }
 
-// Update priority semua task berdasarkan deadline
-$update_priority_query = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
-$update_priority_result = mysqli_query($conn, $update_priority_query);
-while ($task_row = mysqli_fetch_assoc($update_priority_result)) {
-    $new_priority = calculatePriority($task_row['due_date']);
-    $task_id = $task_row['id'];
-    $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id";
-    mysqli_query($conn, $update_priority);
+// Update priority semua task berdasarkan deadline (jika ada project_id)
+if ($project_id > 0) {
+    $update_priority_query = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
+    $update_priority_result = mysqli_query($conn, $update_priority_query);
+    while ($task_row = mysqli_fetch_assoc($update_priority_result)) {
+        $new_priority = calculatePriority($task_row['due_date']);
+        $task_id = $task_row['id'];
+        $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id";
+        mysqli_query($conn, $update_priority);
+    }
+    
+    // Update priority menjadi 'Done' untuk task yang statusnya 'Done'
+    $update_done_priority = "UPDATE tasks SET priority = 'Done' WHERE project_id = $project_id AND status = 'Done'";
+    mysqli_query($conn, $update_done_priority);
 }
-
-// Update priority menjadi 'Done' untuk task yang statusnya 'Done'
-$update_done_priority = "UPDATE tasks SET priority = 'Done' WHERE project_id = $project_id AND status = 'Done'";
-mysqli_query($conn, $update_done_priority);
 
 // Ambil semua staff untuk pilihan assigned_to
 $staff_query = "SELECT id, name, role FROM users ORDER BY name ASC";
@@ -108,31 +103,58 @@ $offset = ($page - 1) * $limit;
 // Filter status (hanya In Progress dan Done)
 $status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET['status']) : '';
 
-// Query untuk mengambil tasks
-$where = "WHERE project_id = $project_id";
-if (!empty($status_filter)) {
-    $where .= " AND status = '$status_filter'";
+// Query untuk mengambil tasks (jika ada project_id)
+$tasks_result = null;
+$total_pages = 1;
+$stats = ['total' => 0, 'in_progress' => 0, 'done' => 0];
+$total_priority = 0;
+
+if ($project_id > 0) {
+    $where = "WHERE project_id = $project_id";
+    if (!empty($status_filter)) {
+        $where .= " AND status = '$status_filter'";
+    }
+    
+    $tasks_query = "SELECT * FROM tasks $where ORDER BY 
+        CASE priority 
+            WHEN 'Urgent' THEN 1 
+            WHEN 'High' THEN 2 
+            WHEN 'Medium' THEN 3 
+            WHEN 'Low' THEN 4 
+            WHEN 'Done' THEN 5
+            ELSE 6 
+        END ASC, 
+        due_date ASC 
+        LIMIT $offset, $limit";
+    $tasks_result = mysqli_query($conn, $tasks_query);
+    
+    // Hitung total tasks
+    $total_query = "SELECT COUNT(*) as total FROM tasks $where";
+    $total_result = mysqli_query($conn, $total_query);
+    $total_row = mysqli_fetch_assoc($total_result);
+    $total_data = $total_row['total'];
+    $total_pages = ceil($total_data / $limit);
+    
+    // Hitung statistik tasks
+    $stats_query = "SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+        SUM(CASE WHEN status = 'Done' THEN 1 ELSE 0 END) as done
+    FROM tasks WHERE project_id = $project_id";
+    $stats_result = mysqli_query($conn, $stats_query);
+    $stats = mysqli_fetch_assoc($stats_result);
+    
+    // Hitung priority stats (Medium + High + Urgent) - HANYA UNTUK STATUS YANG BELUM DONE
+    $medium_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Medium' AND status != 'Done'");
+    $medium = mysqli_fetch_assoc($medium_count);
+    $high_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'High' AND status != 'Done'");
+    $high = mysqli_fetch_assoc($high_count);
+    $urgent_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Urgent' AND status != 'Done'");
+    $urgent = mysqli_fetch_assoc($urgent_count);
+    
+    // Total priority (Medium + High + Urgent) - hanya untuk task yang belum Done
+    $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['total'] ?? 0);
 }
-
-$tasks_query = "SELECT * FROM tasks $where ORDER BY 
-    CASE priority 
-        WHEN 'Urgent' THEN 1 
-        WHEN 'High' THEN 2 
-        WHEN 'Medium' THEN 3 
-        WHEN 'Low' THEN 4 
-        WHEN 'Done' THEN 5
-        ELSE 6 
-    END ASC, 
-    due_date ASC 
-    LIMIT $offset, $limit";
-$tasks_result = mysqli_query($conn, $tasks_query);
-
-// Hitung total tasks
-$total_query = "SELECT COUNT(*) as total FROM tasks $where";
-$total_result = mysqli_query($conn, $total_query);
-$total_row = mysqli_fetch_assoc($total_result);
-$total_data = $total_row['total'];
-$total_pages = ceil($total_data / $limit);
 
 // Proses tambah/edit/hapus task
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -140,44 +162,54 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $action = $_POST['action'];
         
         if ($action == 'add') {
-            $task_name = mysqli_real_escape_string($conn, $_POST['task_name']);
-            $description = mysqli_real_escape_string($conn, $_POST['description']);
-            $assigned_to = mysqli_real_escape_string($conn, $_POST['assigned_to']);
-            $priority = "Low";
-            $status = "In Progress";
+            $kode = mysqli_real_escape_string($conn, $_POST['kode']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
-            $created_by = $user_id;
             
-            $insert = "INSERT INTO tasks (project_id, task_name, description, assigned_to, priority, status, start_date, due_date, created_by) 
-                       VALUES ('$project_id', '$task_name', '$description', '$assigned_to', '$priority', '$status', '$start_date', '$due_date', '$created_by')";
-            if (mysqli_query($conn, $insert)) {
-                $success = "Task berhasil ditambahkan!";
-                echo "<script>window.location.href='taskdetail.php?project_id=$project_id';</script>";
+            // Cek apakah kode project valid
+            $cek_project = "SELECT id FROM projects WHERE kode = '$kode'";
+            $cek_result = mysqli_query($conn, $cek_project);
+            
+            if (mysqli_num_rows($cek_result) == 0) {
+                $error = "Kode Project tidak ditemukan!";
             } else {
-                $error = "Gagal menambahkan task: " . mysqli_error($conn);
+                $project_data = mysqli_fetch_assoc($cek_result);
+                $project_id_baru = $project_data['id'];
+                
+                $task_name = "Task " . date('Y-m-d H:i:s');
+                $description = "";
+                $assigned_to = $_SESSION['name'];
+                $priority = "Low";
+                $status = "In Progress";
+                $created_by = $user_id;
+                
+                $insert = "INSERT INTO tasks (project_id, task_name, description, assigned_to, priority, status, start_date, due_date, created_by) 
+                           VALUES ('$project_id_baru', '$task_name', '$description', '$assigned_to', '$priority', '$status', '$start_date', '$due_date', '$created_by')";
+                if (mysqli_query($conn, $insert)) {
+                    $success = "Task berhasil ditambahkan!";
+                    echo "<script>window.location.href='taskdetail.php?project_id=$project_id_baru';</script>";
+                } else {
+                    $error = "Gagal menambahkan task: " . mysqli_error($conn);
+                }
             }
         }
         
         elseif ($action == 'edit') {
             $id = (int)$_POST['id'];
-            $task_name = mysqli_real_escape_string($conn, $_POST['task_name']);
-            $description = mysqli_real_escape_string($conn, $_POST['description']);
-            $assigned_to = mysqli_real_escape_string($conn, $_POST['assigned_to']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
             
             $update = "UPDATE tasks SET 
-                       task_name='$task_name', 
-                       description='$description', 
-                       assigned_to='$assigned_to', 
                        start_date='$start_date', 
                        due_date='$due_date' 
                        WHERE id=$id";
             
             if (mysqli_query($conn, $update)) {
                 $success = "Task berhasil diupdate!";
-                echo "<script>window.location.href='taskdetail.php?project_id=$project_id';</script>";
+                // Redirect ke halaman yang sama dengan project_id yang sesuai
+                $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$id");
+                $task_row = mysqli_fetch_assoc($task_data);
+                echo "<script>window.location.href='taskdetail.php?project_id=" . $task_row['project_id'] . "';</script>";
             } else {
                 $error = "Gagal mengupdate task: " . mysqli_error($conn);
             }
@@ -185,10 +217,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         elseif ($action == 'delete') {
             $id = (int)$_POST['id'];
+            // Ambil project_id sebelum delete
+            $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$id");
+            $task_row = mysqli_fetch_assoc($task_data);
+            $current_project_id = $task_row['project_id'];
+            
             $delete = "DELETE FROM tasks WHERE id=$id";
             if (mysqli_query($conn, $delete)) {
                 $success = "Task berhasil dihapus!";
-                echo "<script>window.location.href='taskdetail.php?project_id=$project_id';</script>";
+                echo "<script>window.location.href='taskdetail.php?project_id=$current_project_id';</script>";
             } else {
                 $error = "Gagal menghapus task: " . mysqli_error($conn);
             }
@@ -198,15 +235,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $task_ids = $_POST['task_ids'];
             $ids_array = explode(',', $task_ids);
             $success_count = 0;
+            $current_project_id = 0;
             foreach ($ids_array as $tid) {
                 $tid = (int)$tid;
-                $delete = "DELETE FROM tasks WHERE id=$tid AND project_id=$project_id";
+                // Ambil project_id sebelum delete
+                $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$tid");
+                $task_row = mysqli_fetch_assoc($task_data);
+                $current_project_id = $task_row['project_id'];
+                
+                $delete = "DELETE FROM tasks WHERE id=$tid";
                 if (mysqli_query($conn, $delete)) {
                     $success_count++;
                 }
             }
             $success = "$success_count task berhasil dihapus!";
-            echo "<script>window.location.href='taskdetail.php?project_id=$project_id';</script>";
+            echo "<script>window.location.href='taskdetail.php?project_id=$current_project_id';</script>";
         }
         
         elseif ($action == 'update_status') {
@@ -214,30 +257,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $status = mysqli_real_escape_string($conn, $_POST['status']);
             $update = "UPDATE tasks SET status='$status' WHERE id=$id";
             mysqli_query($conn, $update);
-            echo "<script>window.location.href='taskdetail.php?project_id=$project_id';</script>";
+            
+            // Ambil project_id untuk redirect
+            $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$id");
+            $task_row = mysqli_fetch_assoc($task_data);
+            echo "<script>window.location.href='taskdetail.php?project_id=" . $task_row['project_id'] . "';</script>";
         }
     }
 }
-
-// Hitung statistik tasks
-$stats_query = "SELECT 
-    COUNT(*) as total,
-    SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-    SUM(CASE WHEN status = 'Done' THEN 1 ELSE 0 END) as done
-FROM tasks WHERE project_id = $project_id";
-$stats_result = mysqli_query($conn, $stats_query);
-$stats = mysqli_fetch_assoc($stats_result);
-
-// Hitung priority stats (Medium + High + Urgent) - HANYA UNTUK STATUS YANG BELUM DONE
-$medium_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Medium' AND status != 'Done'");
-$medium = mysqli_fetch_assoc($medium_count);
-$high_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'High' AND status != 'Done'");
-$high = mysqli_fetch_assoc($high_count);
-$urgent_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Urgent' AND status != 'Done'");
-$urgent = mysqli_fetch_assoc($urgent_count);
-
-// Total priority (Medium + High + Urgent) - hanya untuk task yang belum Done
-$total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['total'] ?? 0);
 ?>
 
 <!DOCTYPE html>
@@ -245,7 +272,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Detail - <?php echo htmlspecialchars($project['kode']); ?> - Global Media Creative</title>
+    <title>Task Detail - <?php echo $project ? htmlspecialchars($project['kode']) : 'Task Manager'; ?> - Global Media Creative</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -605,11 +632,9 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
         .modal-content {
             background: white;
             border-radius: 12px;
-            width: 550px;
+            width: 500px;
             max-width: 90%;
             padding: 25px;
-            max-height: 90vh;
-            overflow-y: auto;
         }
 
         .modal-header {
@@ -643,17 +668,12 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
             font-weight: 500;
         }
 
-        .form-group input, .form-group select, .form-group textarea {
+        .form-group input {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
         }
 
         .btn-submit {
@@ -731,6 +751,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
             </div>
         </div>
 
+        <?php if ($project && $project_id > 0): ?>
         <!-- Project Info -->
         <div class="project-info">
             <h2><i class="fas fa-folder-open"></i> <?php echo htmlspecialchars($project['kode']); ?> - <?php echo htmlspecialchars($project['client_name']); ?></h2>
@@ -756,6 +777,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                 <div class="number" style="color: #2dce89;"><?php echo $stats['done'] ?? 0; ?></div>
             </div>
         </div>
+        <?php endif; ?>
 
         <?php if (isset($success)): ?>
             <div class="alert alert-success"><?php echo $success; ?></div>
@@ -769,10 +791,13 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                 <button class="btn-add" onclick="openAddModal()">
                     <i class="fas fa-plus"></i> Tambah Task
                 </button>
+                <?php if ($project && $project_id > 0 && mysqli_num_rows($tasks_result) > 0): ?>
                 <button class="btn-delete-task" onclick="openBulkDeleteModal()">
                     <i class="fas fa-trash-alt"></i> Hapus Task
                 </button>
+                <?php endif; ?>
             </div>
+            <?php if ($project && $project_id > 0): ?>
             <div class="filter-box">
                 <select onchange="location.href='?project_id=<?php echo $project_id; ?>&status='+this.value">
                     <option value="">Semua Status</option>
@@ -783,8 +808,10 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                     <a href="taskdetail.php?project_id=<?php echo $project_id; ?>" class="btn-add" style="background: #8898aa;">Reset</a>
                 <?php endif; ?>
             </div>
+            <?php endif; ?>
         </div>
 
+        <?php if ($project && $project_id > 0): ?>
         <div class="task-table">
             <table>
                 <thead>
@@ -871,7 +898,6 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                                 <td>
                                     <strong><?php echo htmlspecialchars($task['task_name']); ?></strong><br>
                                     <small style="color: #8898aa;"><?php echo htmlspecialchars(substr($task['description'], 0, 50)); ?>...</small>
-                                    <br><small style="color: #17a2b8;">Assign to: <?php echo htmlspecialchars($task['assigned_to']); ?></small>
                                 </td
                                 <td class="action-buttons">
                                     <form method="POST" style="display: inline;" onsubmit="return confirm('Update status task?')">
@@ -916,9 +942,15 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                 <?php endif; ?>
             </div>
         <?php endif; ?>
+        <?php else: ?>
+        <div class="alert alert-info" style="text-align: center; padding: 50px;">
+            <i class="fas fa-info-circle" style="font-size: 40px; margin-bottom: 10px; display: block;"></i>
+            Silakan tambah task dengan mengisi Kode Project yang valid.
+        </div>
+        <?php endif; ?>
     </div>
 
-    <!-- Modal Tambah Task (Input Manual) -->
+    <!-- Modal Tambah Task (Kode Project bisa diinput manual) -->
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -928,27 +960,8 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
             <form method="POST" action="">
                 <input type="hidden" name="action" value="add">
                 <div class="form-group">
-                    <label>Kode Project</label>
-                    <input type="text" value="<?php echo htmlspecialchars($project['kode']); ?>" disabled style="background: #f0f0f0;">
-                </div>
-                <div class="form-group">
-                    <label>Nama Task *</label>
-                    <input type="text" name="task_name" required placeholder="Contoh: Revisi Desain Logo">
-                </div>
-                <div class="form-group">
-                    <label>Deskripsi</label>
-                    <textarea name="description" rows="3" placeholder="Jelaskan detail task..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Assign To *</label>
-                    <select name="assigned_to" required>
-                        <option value="">-- Pilih Staff --</option>
-                        <?php foreach ($staff_list as $staff): ?>
-                            <option value="<?php echo htmlspecialchars($staff['name']); ?>">
-                                <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label>Kode Project *</label>
+                    <input type="text" name="kode" placeholder="Contoh: PRJ-001" required>
                 </div>
                 <div class="form-group">
                     <label>Start Date</label>
@@ -963,7 +976,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
         </div>
     </div>
 
-    <!-- Modal Edit Task (Input Manual) -->
+    <!-- Modal Edit Task (Hanya Start Date & Due Date) -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -975,26 +988,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                 <input type="hidden" name="id" id="edit_id">
                 <div class="form-group">
                     <label>Kode Project</label>
-                    <input type="text" value="<?php echo htmlspecialchars($project['kode']); ?>" disabled style="background: #f0f0f0;">
-                </div>
-                <div class="form-group">
-                    <label>Nama Task</label>
-                    <input type="text" name="task_name" id="edit_task_name" required>
-                </div>
-                <div class="form-group">
-                    <label>Deskripsi</label>
-                    <textarea name="description" id="edit_description" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Assign To</label>
-                    <select name="assigned_to" id="edit_assigned_to" required>
-                        <option value="">-- Pilih Staff --</option>
-                        <?php foreach ($staff_list as $staff): ?>
-                            <option value="<?php echo htmlspecialchars($staff['name']); ?>">
-                                <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <input type="text" id="edit_kode" disabled style="background: #f0f0f0;">
                 </div>
                 <div class="form-group">
                     <label>Start Date</label>
@@ -1061,9 +1055,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
-                    document.getElementById('edit_task_name').value = data.task_name;
-                    document.getElementById('edit_description').value = data.description;
-                    document.getElementById('edit_assigned_to').value = data.assigned_to;
+                    document.getElementById('edit_kode').value = data.kode;
                     document.getElementById('edit_start_date').value = data.start_date;
                     document.getElementById('edit_due_date').value = data.due_date;
                     document.getElementById('editModal').classList.add('show');
