@@ -58,7 +58,7 @@ $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-// Filter status
+// Filter status (hanya In Progress dan Done)
 $status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET['status']) : '';
 
 // Query untuk mengambil tasks
@@ -151,12 +151,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Hitung statistik tasks
+// Hitung statistik tasks (hanya In Progress dan Done)
 $stats_query = "SELECT 
     COUNT(*) as total,
-    SUM(CASE WHEN status = 'To Do' THEN 1 ELSE 0 END) as todo,
     SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-    SUM(CASE WHEN status = 'Review' THEN 1 ELSE 0 END) as review,
     SUM(CASE WHEN status = 'Done' THEN 1 ELSE 0 END) as done
 FROM tasks WHERE project_id = $project_id";
 $stats_result = mysqli_query($conn, $stats_query);
@@ -318,7 +316,7 @@ $stats = mysqli_fetch_assoc($stats_result);
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 15px;
             margin-bottom: 25px;
         }
@@ -410,10 +408,42 @@ $stats = mysqli_fetch_assoc($stats_result);
             font-size: 14px;
         }
 
-        .priority-high { color: #f5365c; font-weight: bold; }
-        .priority-medium { color: #fb6340; font-weight: bold; }
-        .priority-low { color: #2dce89; font-weight: bold; }
-        .priority-urgent { color: #f5365c; font-weight: bold; background: #fde8e8; padding: 2px 8px; border-radius: 20px; display: inline-block; }
+        .priority-urgent { 
+            background: #fde8e8; 
+            color: #f5365c; 
+            font-weight: bold; 
+            padding: 4px 10px; 
+            border-radius: 20px; 
+            display: inline-block;
+            font-size: 11px;
+        }
+        .priority-high { 
+            background: #fff3e0; 
+            color: #fb6340; 
+            font-weight: bold; 
+            padding: 4px 10px; 
+            border-radius: 20px; 
+            display: inline-block;
+            font-size: 11px;
+        }
+        .priority-medium { 
+            background: #e3f2fd; 
+            color: #11cdef; 
+            font-weight: bold; 
+            padding: 4px 10px; 
+            border-radius: 20px; 
+            display: inline-block;
+            font-size: 11px;
+        }
+        .priority-low { 
+            background: #e3f5ec; 
+            color: #2dce89; 
+            font-weight: bold; 
+            padding: 4px 10px; 
+            border-radius: 20px; 
+            display: inline-block;
+            font-size: 11px;
+        }
 
         .status-badge {
             padding: 4px 10px;
@@ -431,6 +461,8 @@ $stats = mysqli_fetch_assoc($stats_result);
         .action-buttons {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
         }
 
         .action-buttons button {
@@ -602,10 +634,6 @@ $stats = mysqli_fetch_assoc($stats_result);
                 <div class="number"><?php echo $stats['total'] ?? 0; ?></div>
             </div>
             <div class="stat-card">
-                <h4>To Do</h4>
-                <div class="number" style="color: #8898aa;"><?php echo $stats['todo'] ?? 0; ?></div>
-            </div>
-            <div class="stat-card">
                 <h4>In Progress</h4>
                 <div class="number" style="color: #fb6340;"><?php echo $stats['in_progress'] ?? 0; ?></div>
             </div>
@@ -629,9 +657,7 @@ $stats = mysqli_fetch_assoc($stats_result);
             <div class="filter-box">
                 <select onchange="location.href='?project_id=<?php echo $project_id; ?>&status='+this.value">
                     <option value="">Semua Status</option>
-                    <option value="To Do" <?php echo $status_filter == 'To Do' ? 'selected' : ''; ?>>To Do</option>
                     <option value="In Progress" <?php echo $status_filter == 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
-                    <option value="Review" <?php echo $status_filter == 'Review' ? 'selected' : ''; ?>>Review</option>
                     <option value="Done" <?php echo $status_filter == 'Done' ? 'selected' : ''; ?>>Done</option>
                 </select>
                 <?php if (!empty($status_filter)): ?>
@@ -663,18 +689,18 @@ $stats = mysqli_fetch_assoc($stats_result);
                                     <strong><?php echo htmlspecialchars($task['task_name']); ?></strong><br>
                                     <small style="color: #8898aa;"><?php echo htmlspecialchars(substr($task['description'], 0, 50)); ?>...</small>
                                 </td>
-                                <td><?php echo htmlspecialchars($task['assigned_to']); ?></td
-                                <td><?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?></td
+                                <td><?php echo htmlspecialchars($task['assigned_to']); ?></td>
+                                <td><?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?></td>
                                 <td>
                                     <span class="priority-<?php echo strtolower($task['priority']); ?>">
                                         <?php echo $task['priority']; ?>
                                     </span>
-                                </td
+                                </td>
                                 <td>
                                     <span class="status-badge status-<?php echo str_replace(' ', '', $task['status']); ?>">
                                         <?php echo $task['status']; ?>
                                     </span>
-                                </td
+                                </td>
                                 <td class="action-buttons">
                                     <button class="btn-edit" onclick="openEditModal(<?php echo $task['id']; ?>)">
                                         <i class="fas fa-edit"></i>
@@ -692,7 +718,7 @@ $stats = mysqli_fetch_assoc($stats_result);
                                             <option value="Done" <?php echo $task['status'] == 'Done' ? 'selected' : ''; ?>>Done</option>
                                         </select>
                                     </form>
-                                </td
+                                </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
