@@ -154,23 +154,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $action = $_POST['action'];
         
         if ($action == 'add') {
-            $task_name = mysqli_real_escape_string($conn, trim($_POST['task_name']));
+            $kode = mysqli_real_escape_string($conn, trim($_POST['kode']));
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
-            $description = mysqli_real_escape_string($conn, $_POST['description']);
-            $assigned_to = mysqli_real_escape_string($conn, $_POST['assigned_to']);
             
-            // Cek apakah project sudah ada berdasarkan project_id dari URL
-            if ($project_id > 0) {
-                $project_id_baru = $project_id;
-            } else {
-                // Jika tidak ada project_id, buat project baru dengan kode dari task_name
-                $kode_project = "PRJ_" . date('Ymd_His');
-                $insert_project = "INSERT INTO projects (kode, client_name, status) VALUES ('$kode_project', 'New Project', 'Planning')";
+            $cek_project = "SELECT id FROM projects WHERE kode = '$kode'";
+            $cek_result = mysqli_query($conn, $cek_project);
+            
+            if (mysqli_num_rows($cek_result) == 0) {
+                $insert_project = "INSERT INTO projects (kode, client_name, status) VALUES ('$kode', 'New Project', 'Planning')";
                 mysqli_query($conn, $insert_project);
                 $project_id_baru = mysqli_insert_id($conn);
+            } else {
+                $project_data = mysqli_fetch_assoc($cek_result);
+                $project_id_baru = $project_data['id'];
             }
             
+            $task_name = "Task " . date('Y-m-d H:i:s');
+            $description = "";
+            $assigned_to = $_SESSION['name'];
             $priority = "Low";
             $status = "In Progress";
             $created_by = $user_id;
@@ -187,19 +189,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         elseif ($action == 'edit') {
             $id = (int)$_POST['id'];
-            $task_name = mysqli_real_escape_string($conn, $_POST['task_name']);
-            $description = mysqli_real_escape_string($conn, $_POST['description']);
-            $assigned_to = mysqli_real_escape_string($conn, $_POST['assigned_to']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
             
-            $update = "UPDATE tasks SET 
-                       task_name='$task_name', 
-                       description='$description', 
-                       assigned_to='$assigned_to',
-                       start_date='$start_date', 
-                       due_date='$due_date' 
-                       WHERE id=$id";
+            $update = "UPDATE tasks SET start_date='$start_date', due_date='$due_date' WHERE id=$id";
             
             if (mysqli_query($conn, $update)) {
                 $success = "Task berhasil diupdate!";
@@ -629,7 +622,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .modal-content {
             background: white;
             border-radius: 12px;
-            width: 550px;
+            width: 500px;
             max-width: 90%;
             padding: 25px;
         }
@@ -665,17 +658,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-weight: 500;
         }
 
-        .form-group input, .form-group select, .form-group textarea {
+        .form-group input {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
         }
 
         .btn-submit {
@@ -813,14 +801,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         <?php if ($project && $project_id > 0): ?>
         <div class="task-table">
-            <tr>
+            <table>
                 <thead>
                     <tr>
                         <th class="checkbox-col">
                             <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
                         </th>
                         <th>No</th>
-                        <th>Task</th>
+                        <th>Kode</th>
                         <th>Start Date</th>
                         <th>Due Date</th>
                         <th>Priority</th>
@@ -836,9 +824,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <tr>
                                 <td class="checkbox-col">
                                     <input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>">
-                                </td
+                                </td>
                                 <td><?php echo $no++; ?></td>
-                                <td><strong><?php echo htmlspecialchars($task['task_name']); ?></strong></td>
+                                <td><strong><?php echo htmlspecialchars($project['kode']); ?></strong></td>
                                 <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td>
                                 <td>
                                     <?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?>
@@ -926,7 +914,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <?php else: ?>
         <div class="alert alert-info" style="text-align: center; padding: 50px;">
             <i class="fas fa-info-circle" style="font-size: 40px; margin-bottom: 10px; display: block;"></i>
-            Silakan tambah task baru.
+            Silakan tambah task dengan mengisi Kode Project. System akan otomatis membuat project baru jika kode belum ada.
         </div>
         <?php endif; ?>
     </div>
@@ -941,23 +929,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <form method="POST" action="">
                 <input type="hidden" name="action" value="add">
                 <div class="form-group">
-                    <label>Nama Task *</label>
-                    <input type="text" name="task_name" placeholder="Contoh: Revisi Desain" required>
-                </div>
-                <div class="form-group">
-                    <label>Deskripsi</label>
-                    <textarea name="description" rows="3" placeholder="Deskripsi task..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Assign To</label>
-                    <select name="assigned_to" required>
-                        <option value="">-- Pilih Staff --</option>
-                        <?php foreach ($staff_list as $staff): ?>
-                            <option value="<?php echo htmlspecialchars($staff['name']); ?>">
-                                <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label>Kode Project *</label>
+                    <input type="text" name="kode" placeholder="Contoh: PRJ-001" required>
+                    <small style="color: #8898aa;">Jika kode belum ada, akan otomatis membuat project baru</small>
                 </div>
                 <div class="form-group">
                     <label>Start Date</label>
@@ -983,23 +957,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <input type="hidden" name="action" value="edit">
                 <input type="hidden" name="id" id="edit_id">
                 <div class="form-group">
-                    <label>Nama Task</label>
-                    <input type="text" name="task_name" id="edit_task_name" required>
-                </div>
-                <div class="form-group">
-                    <label>Deskripsi</label>
-                    <textarea name="description" id="edit_description" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Assign To</label>
-                    <select name="assigned_to" id="edit_assigned_to" required>
-                        <option value="">-- Pilih Staff --</option>
-                        <?php foreach ($staff_list as $staff): ?>
-                            <option value="<?php echo htmlspecialchars($staff['name']); ?>">
-                                <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label>Kode Project</label>
+                    <input type="text" id="edit_kode" disabled style="background: #f0f0f0;">
                 </div>
                 <div class="form-group">
                     <label>Start Date</label>
@@ -1047,9 +1006,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
-                    document.getElementById('edit_task_name').value = data.task_name;
-                    document.getElementById('edit_description').value = data.description;
-                    document.getElementById('edit_assigned_to').value = data.assigned_to;
+                    document.getElementById('edit_kode').value = data.kode;
                     document.getElementById('edit_start_date').value = data.start_date;
                     document.getElementById('edit_due_date').value = data.due_date;
                     document.getElementById('editModal').classList.add('show');
