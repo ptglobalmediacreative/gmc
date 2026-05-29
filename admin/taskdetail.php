@@ -52,12 +52,10 @@ function calculatePriority($due_date) {
     $interval = $today->diff($deadline);
     $days_left = (int)$interval->format('%r%a');
     
-    // Jika sudah melewati deadline
     if ($days_left < 0) {
         return 'Urgent';
     }
     
-    // Hitung priority berdasarkan sisa hari
     if ($days_left >= 8) {
         return 'Low';
     } elseif ($days_left >= 5 && $days_left <= 7) {
@@ -71,7 +69,7 @@ function calculatePriority($due_date) {
     }
 }
 
-// Update priority semua task berdasarkan deadline (jika ada project_id)
+// Update priority semua task berdasarkan deadline
 if ($project_id > 0) {
     $update_priority_query = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
     $update_priority_result = mysqli_query($conn, $update_priority_query);
@@ -82,12 +80,11 @@ if ($project_id > 0) {
         mysqli_query($conn, $update_priority);
     }
     
-    // Update priority menjadi 'Done' untuk task yang statusnya 'Done'
     $update_done_priority = "UPDATE tasks SET priority = 'Done' WHERE project_id = $project_id AND status = 'Done'";
     mysqli_query($conn, $update_done_priority);
 }
 
-// Ambil semua staff untuk pilihan assigned_to
+// Ambil semua staff
 $staff_query = "SELECT id, name, role FROM users ORDER BY name ASC";
 $staff_result = mysqli_query($conn, $staff_query);
 $staff_list = [];
@@ -95,15 +92,14 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
     $staff_list[] = $staff;
 }
 
-// Pagination untuk tasks
+// Pagination
 $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-// Filter status (hanya In Progress dan Done)
+// Filter status
 $status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET['status']) : '';
 
-// Query untuk mengambil tasks (jika ada project_id)
 $tasks_result = null;
 $total_pages = 1;
 $stats = ['total' => 0, 'in_progress' => 0, 'done' => 0];
@@ -128,14 +124,12 @@ if ($project_id > 0) {
         LIMIT $offset, $limit";
     $tasks_result = mysqli_query($conn, $tasks_query);
     
-    // Hitung total tasks
     $total_query = "SELECT COUNT(*) as total FROM tasks $where";
     $total_result = mysqli_query($conn, $total_query);
     $total_row = mysqli_fetch_assoc($total_result);
     $total_data = $total_row['total'];
     $total_pages = ceil($total_data / $limit);
     
-    // Hitung statistik tasks
     $stats_query = "SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
@@ -144,7 +138,6 @@ if ($project_id > 0) {
     $stats_result = mysqli_query($conn, $stats_query);
     $stats = mysqli_fetch_assoc($stats_result);
     
-    // Hitung priority stats (Medium + High + Urgent) - HANYA UNTUK STATUS YANG BELUM DONE
     $medium_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Medium' AND status != 'Done'");
     $medium = mysqli_fetch_assoc($medium_count);
     $high_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'High' AND status != 'Done'");
@@ -152,11 +145,10 @@ if ($project_id > 0) {
     $urgent_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Urgent' AND status != 'Done'");
     $urgent = mysqli_fetch_assoc($urgent_count);
     
-    // Total priority (Medium + High + Urgent) - hanya untuk task yang belum Done
     $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['total'] ?? 0);
 }
 
-// Proses tambah/edit/hapus task
+// Proses CRUD
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         $action = $_POST['action'];
@@ -166,17 +158,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
             
-            // Cek apakah kode project sudah ada
             $cek_project = "SELECT id FROM projects WHERE kode = '$kode'";
             $cek_result = mysqli_query($conn, $cek_project);
             
             if (mysqli_num_rows($cek_result) == 0) {
-                // Jika kode belum ada, buat project baru
                 $insert_project = "INSERT INTO projects (kode, client_name, status) VALUES ('$kode', 'New Project', 'Planning')";
                 mysqli_query($conn, $insert_project);
                 $project_id_baru = mysqli_insert_id($conn);
             } else {
-                // Jika sudah ada, gunakan project yang ada
                 $project_data = mysqli_fetch_assoc($cek_result);
                 $project_id_baru = $project_data['id'];
             }
@@ -203,14 +192,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
             
-            $update = "UPDATE tasks SET 
-                       start_date='$start_date', 
-                       due_date='$due_date' 
-                       WHERE id=$id";
+            $update = "UPDATE tasks SET start_date='$start_date', due_date='$due_date' WHERE id=$id";
             
             if (mysqli_query($conn, $update)) {
                 $success = "Task berhasil diupdate!";
-                // Ambil project_id untuk redirect
                 $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$id");
                 $task_row = mysqli_fetch_assoc($task_data);
                 echo "<script>window.location.href='taskdetail.php?project_id=" . $task_row['project_id'] . "';</script>";
@@ -221,7 +206,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         elseif ($action == 'delete') {
             $id = (int)$_POST['id'];
-            // Ambil project_id sebelum delete
             $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$id");
             $task_row = mysqli_fetch_assoc($task_data);
             $current_project_id = $task_row['project_id'];
@@ -242,7 +226,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $current_project_id = 0;
             foreach ($ids_array as $tid) {
                 $tid = (int)$tid;
-                // Ambil project_id sebelum delete
                 $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$tid");
                 $task_row = mysqli_fetch_assoc($task_data);
                 $current_project_id = $task_row['project_id'];
@@ -262,7 +245,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $update = "UPDATE tasks SET status='$status' WHERE id=$id";
             mysqli_query($conn, $update);
             
-            // Ambil project_id untuk redirect
             $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$id");
             $task_row = mysqli_fetch_assoc($task_data);
             echo "<script>window.location.href='taskdetail.php?project_id=" . $task_row['project_id'] . "';</script>";
@@ -420,7 +402,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             background: rgba(255,255,255,0.3);
         }
 
-        /* Stats Grid */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -537,7 +518,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 14px;
         }
 
-        /* Priority Styles */
         .priority-urgent { 
             background: #fde8e8; 
             color: #f5365c; 
@@ -584,7 +564,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 11px;
         }
 
-        /* Status Badge Styles */
         .status-badge {
             padding: 4px 10px;
             border-radius: 20px;
@@ -592,28 +571,35 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-weight: bold;
             display: inline-block;
         }
-        .status-ToDo { 
-            background: #eef2f7; 
-            color: #8898aa; 
+        .status-ToDo { background: #eef2f7; color: #8898aa; }
+        .status-InProgress { background: #fff3e0; color: #fb6340; }
+        .status-Review { background: #e3f2fd; color: #11cdef; }
+        .status-Done { background: #e3f5ec; color: #2dce89; }
+
+        .btn-detail {
+            background: #17a2b8;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
         }
-        .status-InProgress { 
-            background: #fff3e0; 
-            color: #fb6340; 
-        }
-        .status-Review { 
-            background: #e3f2fd; 
-            color: #11cdef; 
-        }
-        .status-Done { 
-            background: #e3f5ec; 
-            color: #2dce89; 
+        .btn-detail:hover {
+            background: #138496;
         }
 
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            align-items: center;
+        .status-select {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
+
+        .checkbox-col {
+            width: 30px;
+            text-align: center;
         }
 
         .modal {
@@ -756,13 +742,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
 
         <?php if ($project && $project_id > 0): ?>
-        <!-- Project Info -->
         <div class="project-info">
             <h2><i class="fas fa-folder-open"></i> <?php echo htmlspecialchars($project['kode']); ?> - <?php echo htmlspecialchars($project['client_name']); ?></h2>
             <a href="project.php" class="btn-back"><i class="fas fa-arrow-left"></i> Kembali ke Project</a>
         </div>
 
-        <!-- Stats Grid - 4 columns -->
         <div class="stats-grid">
             <div class="stat-card">
                 <h4>Total Task</h4>
@@ -820,7 +804,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 30px;">
+                        <th class="checkbox-col">
                             <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
                         </th>
                         <th>No</th>
@@ -838,9 +822,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <?php $no = $offset + 1; ?>
                         <?php while ($task = mysqli_fetch_assoc($tasks_result)): ?>
                             <tr>
-                                <td style="text-align: center;">
+                                <td class="checkbox-col">
                                     <input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>">
-                                </td
+                                </td>
                                 <td><?php echo $no++; ?></td>
                                 <td><strong><?php echo htmlspecialchars($project['kode']); ?></strong></td>
                                 <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td>
@@ -854,21 +838,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     <?php 
                                     $priority_class = '';
                                     switch(strtolower($task['priority'])) {
-                                        case 'urgent':
-                                            $priority_class = 'priority-urgent';
-                                            break;
-                                        case 'high':
-                                            $priority_class = 'priority-high';
-                                            break;
-                                        case 'medium':
-                                            $priority_class = 'priority-medium';
-                                            break;
-                                        case 'low':
-                                            $priority_class = 'priority-low';
-                                            break;
-                                        case 'done':
-                                            $priority_class = 'priority-done';
-                                            break;
+                                        case 'urgent': $priority_class = 'priority-urgent'; break;
+                                        case 'high': $priority_class = 'priority-high'; break;
+                                        case 'medium': $priority_class = 'priority-medium'; break;
+                                        case 'low': $priority_class = 'priority-low'; break;
+                                        case 'done': $priority_class = 'priority-done'; break;
                                     }
                                     ?>
                                     <span class="<?php echo $priority_class; ?>">
@@ -880,18 +854,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     <?php 
                                     $status_class = '';
                                     switch(strtolower($task['status'])) {
-                                        case 'to do':
-                                            $status_class = 'status-ToDo';
-                                            break;
-                                        case 'in progress':
-                                            $status_class = 'status-InProgress';
-                                            break;
-                                        case 'review':
-                                            $status_class = 'status-Review';
-                                            break;
-                                        case 'done':
-                                            $status_class = 'status-Done';
-                                            break;
+                                        case 'to do': $status_class = 'status-ToDo'; break;
+                                        case 'in progress': $status_class = 'status-InProgress'; break;
+                                        case 'review': $status_class = 'status-Review'; break;
+                                        case 'done': $status_class = 'status-Done'; break;
                                     }
                                     ?>
                                     <span class="status-badge <?php echo $status_class; ?>">
@@ -900,21 +866,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     </span>
                                 </td>
                                 <td>
-                                    <strong><?php echo htmlspecialchars($task['task_name']); ?></strong><br>
-                                    <small style="color: #8898aa;"><?php echo htmlspecialchars(substr($task['description'], 0, 50)); ?>...</small>
-                                </td
-                                <td class="action-buttons">
+                                    <button class="btn-detail" onclick="window.location.href='detail_task.php?id=<?php echo $task['id']; ?>'">
+                                        <i class="fas fa-eye"></i> Detail
+                                    </button>
+                                </td>
+                                <td>
                                     <form method="POST" style="display: inline;" onsubmit="return confirm('Update status task?')">
                                         <input type="hidden" name="action" value="update_status">
                                         <input type="hidden" name="id" value="<?php echo $task['id']; ?>">
-                                        <select name="status" onchange="this.form.submit()" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #ddd; cursor: pointer;">
-                                            <option value="To Do" <?php echo $task['status'] == 'To Do' ? 'selected' : ''; ?>>To Do</option>
+                                        <select name="status" onchange="this.form.submit()" class="status-select">
                                             <option value="In Progress" <?php echo $task['status'] == 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
-                                            <option value="Review" <?php echo $task['status'] == 'Review' ? 'selected' : ''; ?>>Review</option>
                                             <option value="Done" <?php echo $task['status'] == 'Done' ? 'selected' : ''; ?>>Done</option>
                                         </select>
                                     </form>
-                                </td
+                                </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
@@ -922,11 +887,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <td colspan="9" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-tasks" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada task. Klik "Tambah Task" untuk membuat task baru.
-                             </td
+                            </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
-            <tr>
+            </table>
         </div>
 
         <?php if ($total_pages > 1): ?>
@@ -954,7 +919,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <?php endif; ?>
     </div>
 
-    <!-- Modal Tambah Task (Kode Project bisa diinput manual) -->
+    <!-- Modal Tambah Task -->
     <div id="addModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -981,7 +946,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </div>
 
-    <!-- Modal Edit Task (Hanya Start Date & Due Date) -->
+    <!-- Modal Edit Task -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1008,26 +973,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </div>
 
-    <!-- Modal Hapus Task -->
-    <div id="deleteModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Hapus Task</h3>
-                <span class="close-modal" onclick="closeDeleteModal()">&times;</span>
-            </div>
-            <form method="POST" action="">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="id" id="delete_id">
-                <p>Apakah Anda yakin ingin menghapus task <strong id="delete_name"></strong>?</p>
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button type="submit" class="btn-submit" style="background: #f5365c;">Ya, Hapus</button>
-                    <button type="button" class="btn-submit" onclick="closeDeleteModal()" style="background: #8898aa;">Batal</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Modal Hapus Massal (Bulk Delete) -->
+    <!-- Modal Hapus Massal -->
     <div id="bulkDeleteModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1073,16 +1019,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         function closeEditModal() {
             document.getElementById('editModal').classList.remove('show');
-        }
-        
-        function openDeleteModal(id, name) {
-            document.getElementById('delete_id').value = id;
-            document.getElementById('delete_name').innerHTML = name;
-            document.getElementById('deleteModal').classList.add('show');
-        }
-        
-        function closeDeleteModal() {
-            document.getElementById('deleteModal').classList.remove('show');
         }
         
         function toggleSelectAll() {
