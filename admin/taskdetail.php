@@ -84,14 +84,6 @@ if ($project_id > 0) {
     mysqli_query($conn, $update_done_priority);
 }
 
-// Ambil semua staff
-$staff_query = "SELECT id, name, role FROM users ORDER BY name ASC";
-$staff_result = mysqli_query($conn, $staff_query);
-$staff_list = [];
-while ($staff = mysqli_fetch_assoc($staff_result)) {
-    $staff_list[] = $staff;
-}
-
 // Pagination
 $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -157,8 +149,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $task_name = mysqli_real_escape_string($conn, trim($_POST['task_name']));
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
-            $description = mysqli_real_escape_string($conn, $_POST['description']);
-            $assigned_to = mysqli_real_escape_string($conn, $_POST['assigned_to']);
             
             // Jika tidak ada project_id, buat project baru
             if ($project_id == 0) {
@@ -172,6 +162,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             $priority = "Low";
             $status = "In Progress";
+            $description = "";
+            $assigned_to = $_SESSION['name'];
             $created_by = $user_id;
             
             $insert = "INSERT INTO tasks (project_id, task_name, description, assigned_to, priority, status, start_date, due_date, created_by) 
@@ -187,15 +179,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         elseif ($action == 'edit') {
             $id = (int)$_POST['id'];
             $task_name = mysqli_real_escape_string($conn, $_POST['task_name']);
-            $description = mysqli_real_escape_string($conn, $_POST['description']);
-            $assigned_to = mysqli_real_escape_string($conn, $_POST['assigned_to']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
             
             $update = "UPDATE tasks SET 
-                       task_name='$task_name', 
-                       description='$description', 
-                       assigned_to='$assigned_to',
+                       task_name='$task_name',
                        start_date='$start_date', 
                        due_date='$due_date' 
                        WHERE id=$id";
@@ -628,7 +616,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .modal-content {
             background: white;
             border-radius: 12px;
-            width: 550px;
+            width: 450px;
             max-width: 90%;
             padding: 25px;
         }
@@ -664,17 +652,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-weight: 500;
         }
 
-        .form-group input, .form-group select, .form-group textarea {
+        .form-group input {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
         }
 
         .btn-submit {
@@ -875,8 +858,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                         <?php echo $task['status']; ?>
                                     </span>
-                                </td>
-                                <td>
+                                <tr>
+                                <tr>
                                     <button class="btn-detail" onclick="window.location.href='detail_task.php?id=<?php echo $task['id']; ?>'">
                                         <i class="fas fa-eye"></i> Detail
                                     </button>
@@ -944,21 +927,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <input type="text" name="task_name" placeholder="Contoh: Revisi Desain Logo" required>
                 </div>
                 <div class="form-group">
-                    <label>Deskripsi</label>
-                    <textarea name="description" rows="3" placeholder="Deskripsi task..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Assign To</label>
-                    <select name="assigned_to" required>
-                        <option value="">-- Pilih Staff --</option>
-                        <?php foreach ($staff_list as $staff): ?>
-                            <option value="<?php echo htmlspecialchars($staff['name']); ?>">
-                                <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label>Start Date</label>
                     <input type="date" name="start_date">
                 </div>
@@ -984,21 +952,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="form-group">
                     <label>Judul Task</label>
                     <input type="text" name="task_name" id="edit_task_name" required>
-                </div>
-                <div class="form-group">
-                    <label>Deskripsi</label>
-                    <textarea name="description" id="edit_description" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Assign To</label>
-                    <select name="assigned_to" id="edit_assigned_to" required>
-                        <option value="">-- Pilih Staff --</option>
-                        <?php foreach ($staff_list as $staff): ?>
-                            <option value="<?php echo htmlspecialchars($staff['name']); ?>">
-                                <?php echo htmlspecialchars($staff['name']); ?> (<?php echo htmlspecialchars($staff['role']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
                 </div>
                 <div class="form-group">
                     <label>Start Date</label>
@@ -1047,8 +1000,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
                     document.getElementById('edit_task_name').value = data.task_name;
-                    document.getElementById('edit_description').value = data.description;
-                    document.getElementById('edit_assigned_to').value = data.assigned_to;
                     document.getElementById('edit_start_date').value = data.start_date;
                     document.getElementById('edit_due_date').value = data.due_date;
                     document.getElementById('editModal').classList.add('show');
