@@ -797,11 +797,12 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                             <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
                         </th>
                         <th>No</th>
-                        <th>Task</th>
-                        <th>Assigned To</th>
+                        <th>Kode</th>
+                        <th>Start Date</th>
                         <th>Due Date</th>
                         <th>Priority</th>
                         <th>Status</th>
+                        <th>Detail Task</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -814,11 +815,8 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                                     <input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>">
                                 </td
                                 <td><?php echo $no++; ?></td>
-                                <td>
-                                    <strong><?php echo htmlspecialchars($task['task_name']); ?></strong><br>
-                                    <small style="color: #8898aa;"><?php echo htmlspecialchars(substr($task['description'], 0, 50)); ?>...</small>
-                                </td>
-                                <td><?php echo htmlspecialchars($task['assigned_to']); ?></td>
+                                <td><strong><?php echo htmlspecialchars($project['kode']); ?></strong></td>
+                                <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td>
                                 <td>
                                     <?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?>
                                     <?php if ($task['due_date'] && strtotime($task['due_date']) < time()): ?>
@@ -874,6 +872,10 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                                         <?php echo $task['status']; ?>
                                     </span>
                                 </td>
+                                <td>
+                                    <strong><?php echo htmlspecialchars($task['task_name']); ?></strong><br>
+                                    <small style="color: #8898aa;"><?php echo htmlspecialchars(substr($task['description'], 0, 50)); ?>...</small>
+                                </td
                                 <td class="action-buttons">
                                     <form method="POST" style="display: inline;" onsubmit="return confirm('Update status task?')">
                                         <input type="hidden" name="action" value="update_status">
@@ -885,12 +887,12 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                                             <option value="Done" <?php echo $task['status'] == 'Done' ? 'selected' : ''; ?>>Done</option>
                                         </select>
                                     </form>
-                                </td>
+                                </td
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" style="text-align: center; padding: 50px;">
+                            <td colspan="9" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-tasks" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada task. Klik "Tambah Task" untuk membuat task baru.
                              </td
