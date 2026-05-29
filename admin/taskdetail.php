@@ -162,35 +162,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $action = $_POST['action'];
         
         if ($action == 'add') {
-            $kode = mysqli_real_escape_string($conn, $_POST['kode']);
+            $kode = mysqli_real_escape_string($conn, trim($_POST['kode']));
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
             
-            // Cek apakah kode project valid
+            // Cek apakah kode project sudah ada
             $cek_project = "SELECT id FROM projects WHERE kode = '$kode'";
             $cek_result = mysqli_query($conn, $cek_project);
             
             if (mysqli_num_rows($cek_result) == 0) {
-                $error = "Kode Project tidak ditemukan!";
+                // Jika kode belum ada, buat project baru
+                $insert_project = "INSERT INTO projects (kode, client_name, status) VALUES ('$kode', 'New Project', 'Planning')";
+                mysqli_query($conn, $insert_project);
+                $project_id_baru = mysqli_insert_id($conn);
             } else {
+                // Jika sudah ada, gunakan project yang ada
                 $project_data = mysqli_fetch_assoc($cek_result);
                 $project_id_baru = $project_data['id'];
-                
-                $task_name = "Task " . date('Y-m-d H:i:s');
-                $description = "";
-                $assigned_to = $_SESSION['name'];
-                $priority = "Low";
-                $status = "In Progress";
-                $created_by = $user_id;
-                
-                $insert = "INSERT INTO tasks (project_id, task_name, description, assigned_to, priority, status, start_date, due_date, created_by) 
-                           VALUES ('$project_id_baru', '$task_name', '$description', '$assigned_to', '$priority', '$status', '$start_date', '$due_date', '$created_by')";
-                if (mysqli_query($conn, $insert)) {
-                    $success = "Task berhasil ditambahkan!";
-                    echo "<script>window.location.href='taskdetail.php?project_id=$project_id_baru';</script>";
-                } else {
-                    $error = "Gagal menambahkan task: " . mysqli_error($conn);
-                }
+            }
+            
+            $task_name = "Task " . date('Y-m-d H:i:s');
+            $description = "";
+            $assigned_to = $_SESSION['name'];
+            $priority = "Low";
+            $status = "In Progress";
+            $created_by = $user_id;
+            
+            $insert = "INSERT INTO tasks (project_id, task_name, description, assigned_to, priority, status, start_date, due_date, created_by) 
+                       VALUES ('$project_id_baru', '$task_name', '$description', '$assigned_to', '$priority', '$status', '$start_date', '$due_date', '$created_by')";
+            if (mysqli_query($conn, $insert)) {
+                $success = "Task berhasil ditambahkan!";
+                echo "<script>window.location.href='taskdetail.php?project_id=$project_id_baru';</script>";
+            } else {
+                $error = "Gagal menambahkan task: " . mysqli_error($conn);
             }
         }
         
@@ -206,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             if (mysqli_query($conn, $update)) {
                 $success = "Task berhasil diupdate!";
-                // Redirect ke halaman yang sama dengan project_id yang sesuai
+                // Ambil project_id untuk redirect
                 $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$id");
                 $task_row = mysqli_fetch_assoc($task_data);
                 echo "<script>window.location.href='taskdetail.php?project_id=" . $task_row['project_id'] . "';</script>";
@@ -791,7 +795,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <button class="btn-add" onclick="openAddModal()">
                     <i class="fas fa-plus"></i> Tambah Task
                 </button>
-                <?php if ($project && $project_id > 0 && mysqli_num_rows($tasks_result) > 0): ?>
+                <?php if ($project && $project_id > 0 && $tasks_result && mysqli_num_rows($tasks_result) > 0): ?>
                 <button class="btn-delete-task" onclick="openBulkDeleteModal()">
                     <i class="fas fa-trash-alt"></i> Hapus Task
                 </button>
@@ -922,7 +926,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         </tr>
                     <?php endif; ?>
                 </tbody>
-            </table>
+            <tr>
         </div>
 
         <?php if ($total_pages > 1): ?>
@@ -945,7 +949,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <?php else: ?>
         <div class="alert alert-info" style="text-align: center; padding: 50px;">
             <i class="fas fa-info-circle" style="font-size: 40px; margin-bottom: 10px; display: block;"></i>
-            Silakan tambah task dengan mengisi Kode Project yang valid.
+            Silakan tambah task dengan mengisi Kode Project. System akan otomatis membuat project baru jika kode belum ada.
         </div>
         <?php endif; ?>
     </div>
@@ -962,6 +966,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="form-group">
                     <label>Kode Project *</label>
                     <input type="text" name="kode" placeholder="Contoh: PRJ-001" required>
+                    <small style="color: #8898aa;">Jika kode belum ada, akan otomatis membuat project baru</small>
                 </div>
                 <div class="form-group">
                     <label>Start Date</label>
