@@ -730,7 +730,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                 <div class="number" style="color: #fb6340;"><?php echo $stats['in_progress'] ?? 0; ?></div>
             </div>
             <div class="stat-card">
-                <h4>Priority (Med/High/Urg)</h4>
+                <h4>Priority</h4>
                 <div class="number" style="color: #f5365c;"><?php echo $total_priority; ?></div>
             </div>
             <div class="stat-card">
