@@ -39,7 +39,7 @@ $create_table = "CREATE TABLE IF NOT EXISTS tasks (
     task_name VARCHAR(255) NOT NULL,
     description TEXT,
     assigned_to VARCHAR(255),
-    priority ENUM('Low', 'Medium', 'High', 'Urgent') DEFAULT 'Medium',
+    priority ENUM('Low', 'Medium', 'High', 'Urgent', 'Done') DEFAULT 'Medium',
     status ENUM('To Do', 'In Progress', 'Review', 'Done') DEFAULT 'To Do',
     start_date DATE,
     due_date DATE,
@@ -88,6 +88,10 @@ while ($task_row = mysqli_fetch_assoc($update_priority_result)) {
     mysqli_query($conn, $update_priority);
 }
 
+// Update priority menjadi 'Done' untuk task yang statusnya 'Done'
+$update_done_priority = "UPDATE tasks SET priority = 'Done' WHERE project_id = $project_id AND status = 'Done'";
+mysqli_query($conn, $update_done_priority);
+
 // Ambil semua staff untuk pilihan assigned_to
 $staff_query = "SELECT id, name, role FROM users ORDER BY name ASC";
 $staff_result = mysqli_query($conn, $staff_query);
@@ -116,7 +120,8 @@ $tasks_query = "SELECT * FROM tasks $where ORDER BY
         WHEN 'High' THEN 2 
         WHEN 'Medium' THEN 3 
         WHEN 'Low' THEN 4 
-        ELSE 5 
+        WHEN 'Done' THEN 5
+        ELSE 6 
     END ASC, 
     due_date ASC 
     LIMIT $offset, $limit";
@@ -510,6 +515,15 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
             display: inline-block;
             font-size: 11px;
         }
+        .priority-done { 
+            background: #e3f5ec; 
+            color: #2dce89; 
+            font-weight: bold; 
+            padding: 4px 10px; 
+            border-radius: 20px; 
+            display: inline-block;
+            font-size: 11px;
+        }
 
         /* Status Badge Styles */
         .status-badge {
@@ -759,7 +773,7 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                         <th>Priority</th>
                         <th>Status</th>
                         <th>Aksi</th>
-                    <tr>
+                    </tr>
                 </thead>
                 <tbody>
                     <?php if (mysqli_num_rows($tasks_result) > 0): ?>
@@ -794,10 +808,13 @@ $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['to
                                         case 'low':
                                             $priority_class = 'priority-low';
                                             break;
+                                        case 'done':
+                                            $priority_class = 'priority-done';
+                                            break;
                                     }
                                     ?>
                                     <span class="<?php echo $priority_class; ?>">
-                                        <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : 'fa-minus')); ?>"></i>
+                                        <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : ($task['priority'] == 'Done' ? 'fa-check-circle' : 'fa-minus'))); ?>"></i>
                                         <?php echo $task['priority']; ?>
                                     </span>
                                 </td>
