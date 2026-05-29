@@ -212,15 +212,16 @@ FROM tasks WHERE project_id = $project_id";
 $stats_result = mysqli_query($conn, $stats_query);
 $stats = mysqli_fetch_assoc($stats_result);
 
-// Hitung priority stats
-$urgent_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Urgent'");
-$urgent = mysqli_fetch_assoc($urgent_count);
-$high_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'High'");
-$high = mysqli_fetch_assoc($high_count);
+// Hitung priority stats (Medium + High + Urgent)
 $medium_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Medium'");
 $medium = mysqli_fetch_assoc($medium_count);
-$low_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Low'");
-$low = mysqli_fetch_assoc($low_count);
+$high_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'High'");
+$high = mysqli_fetch_assoc($high_count);
+$urgent_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Urgent'");
+$urgent = mysqli_fetch_assoc($urgent_count);
+
+// Total priority (Medium + High + Urgent)
+$total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['total'] ?? 0);
 ?>
 
 <!DOCTYPE html>
@@ -378,6 +379,12 @@ $low = mysqli_fetch_assoc($low_count);
             grid-template-columns: repeat(4, 1fr);
             gap: 15px;
             margin-bottom: 25px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .stat-card {
@@ -698,7 +705,7 @@ $low = mysqli_fetch_assoc($low_count);
             <a href="project.php" class="btn-back"><i class="fas fa-arrow-left"></i> Kembali ke Project</a>
         </div>
 
-        <!-- Stats Grid -->
+        <!-- Stats Grid - 4 columns -->
         <div class="stats-grid">
             <div class="stat-card">
                 <h4>Total Task</h4>
@@ -709,12 +716,12 @@ $low = mysqli_fetch_assoc($low_count);
                 <div class="number" style="color: #fb6340;"><?php echo $stats['in_progress'] ?? 0; ?></div>
             </div>
             <div class="stat-card">
-                <h4>Done</h4>
-                <div class="number" style="color: #2dce89;"><?php echo $stats['done'] ?? 0; ?></div>
+                <h4>Priority (Med/High/Urg)</h4>
+                <div class="number" style="color: #f5365c;"><?php echo $total_priority; ?></div>
             </div>
             <div class="stat-card">
-                <h4>Urgent Priority</h4>
-                <div class="number" style="color: #f5365c;"><?php echo $urgent['total'] ?? 0; ?></div>
+                <h4>Done</h4>
+                <div class="number" style="color: #2dce89;"><?php echo $stats['done'] ?? 0; ?></div>
             </div>
         </div>
 
