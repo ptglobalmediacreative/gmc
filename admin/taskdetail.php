@@ -231,15 +231,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         elseif ($action == 'update_status') {
             $id = (int)$_POST['id'];
             $status = mysqli_real_escape_string($conn, $_POST['status']);
-            $update = "UPDATE tasks SET status='$status' WHERE id=$id";
-            mysqli_query($conn, $update);
             
-            $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$id");
-            $task_row = mysqli_fetch_assoc($task_data);
-            echo "<script>window.location.href='taskdetail.php?project_id=" . $task_row['project_id'] . "';</script>";
+            // Ambil project_id sebelum update
+            $task_data = mysqli_query($conn, "SELECT project_id, due_date FROM tasks WHERE id=$id");
+            if (!$task_data) {
+                $error = "Gagal mengambil data task";
+            } else {
+                $task_row = mysqli_fetch_assoc($task_data);
+                $current_project_id = $task_row['project_id'];
+                $due_date = $task_row['due_date'];
+                
+                // Update status
+                $update = "UPDATE tasks SET status='$status' WHERE id=$id";
+                if (mysqli_query($conn, $update)) {
+                    // Jika status berubah menjadi Done, update priority menjadi Done
+                    if ($status == 'Done') {
+                        mysqli_query($conn, "UPDATE tasks SET priority='Done' WHERE id=$id");
+                    } else {
+                        // Jika tidak, update priority berdasarkan deadline
+                        $new_priority = calculatePriority($due_date);
+                        mysqli_query($conn, "UPDATE tasks SET priority='$new_priority' WHERE id=$id");
+                    }
+                    
+                    // Redirect dengan project_id yang benar
+                    echo "<script>window.location.href='taskdetail.php?project_id=" . $current_project_id . "';</script>";
+                    exit();
+                } else {
+                    $error = "Gagal mengupdate status task: " . mysqli_error($conn);
+                }
+            }
         }
-    }
-}
 ?>
 
 <!DOCTYPE html>

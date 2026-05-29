@@ -9,8 +9,12 @@ if (!isset($_SESSION['user_id'])) {
 $id = (int)$_GET['id'];
 $query = "SELECT id, task_name, start_date, due_date FROM tasks WHERE id = $id";
 $result = mysqli_query($conn, $query);
-$data = mysqli_fetch_assoc($result);
 
-header('Content-Type: application/json');
-echo json_encode($data);
+if ($result && mysqli_num_rows($result) > 0) {
+    $data = mysqli_fetch_assoc($result);
+    header('Content-Type: application/json');
+    echo json_encode($data);
+} else {
+    echo json_encode(['error' => 'Task not found']);
+}
 ?>
