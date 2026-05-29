@@ -761,7 +761,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     <input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>">
                                 </td>
                                 <td><?php echo $no++; ?></td>
-                                <td><strong><?php echo htmlspecialchars($task['task_name']); ?></strong></td>
+                                <td>
+                                    <a href="detail_task.php?id=<?php echo $task['id']; ?>" style="color: #1e3c72; text-decoration: none; font-weight: bold;">
+                                        <?php echo htmlspecialchars($task['task_name']); ?>
+                                    </a>
+                                </td>
                                 <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td>
                                 <td>
                                     <?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?>
