@@ -150,7 +150,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
             
-            // Jika tidak ada project_id, buat project baru
             if ($project_id == 0) {
                 $kode_project = "PRJ_" . date('Ymd_His');
                 $insert_project = "INSERT INTO projects (kode, client_name, status) VALUES ('$kode_project', 'New Project', 'Planning')";
@@ -182,11 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
             
-            $update = "UPDATE tasks SET 
-                       task_name='$task_name',
-                       start_date='$start_date', 
-                       due_date='$due_date' 
-                       WHERE id=$id";
+            $update = "UPDATE tasks SET task_name='$task_name', start_date='$start_date', due_date='$due_date' WHERE id=$id";
             
             if (mysqli_query($conn, $update)) {
                 $success = "Task berhasil diupdate!";
@@ -512,51 +507,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 14px;
         }
 
-        .priority-urgent { 
-            background: #fde8e8; 
-            color: #f5365c; 
-            font-weight: bold; 
-            padding: 4px 10px; 
-            border-radius: 20px; 
-            display: inline-block;
-            font-size: 11px;
-        }
-        .priority-high { 
-            background: #fff3e0; 
-            color: #fb6340; 
-            font-weight: bold; 
-            padding: 4px 10px; 
-            border-radius: 20px; 
-            display: inline-block;
-            font-size: 11px;
-        }
-        .priority-medium { 
-            background: #e3f2fd; 
-            color: #11cdef; 
-            font-weight: bold; 
-            padding: 4px 10px; 
-            border-radius: 20px; 
-            display: inline-block;
-            font-size: 11px;
-        }
-        .priority-low { 
-            background: #e3f5ec; 
-            color: #2dce89; 
-            font-weight: bold; 
-            padding: 4px 10px; 
-            border-radius: 20px; 
-            display: inline-block;
-            font-size: 11px;
-        }
-        .priority-done { 
-            background: #e3f5ec; 
-            color: #2dce89; 
-            font-weight: bold; 
-            padding: 4px 10px; 
-            border-radius: 20px; 
-            display: inline-block;
-            font-size: 11px;
-        }
+        .priority-urgent { background: #fde8e8; color: #f5365c; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
+        .priority-high { background: #fff3e0; color: #fb6340; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
+        .priority-medium { background: #e3f2fd; color: #11cdef; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
+        .priority-low { background: #e3f5ec; color: #2dce89; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
+        .priority-done { background: #e3f5ec; color: #2dce89; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
 
         .status-badge {
             padding: 4px 10px;
@@ -569,19 +524,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .status-InProgress { background: #fff3e0; color: #fb6340; }
         .status-Review { background: #e3f2fd; color: #11cdef; }
         .status-Done { background: #e3f5ec; color: #2dce89; }
-
-        .btn-detail {
-            background: #17a2b8;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .btn-detail:hover {
-            background: #138496;
-        }
 
         .status-select {
             padding: 6px 12px;
@@ -807,7 +749,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <th>Due Date</th>
                         <th>Priority</th>
                         <th>Status</th>
-                        <th>Detail Task</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -818,7 +759,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <tr>
                                 <td class="checkbox-col">
                                     <input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>">
-                                </td
+                                </td>
                                 <td><?php echo $no++; ?></td>
                                 <td><strong><?php echo htmlspecialchars($task['task_name']); ?></strong></td>
                                 <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td>
@@ -858,12 +799,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                         <?php echo $task['status']; ?>
                                     </span>
-                                <tr>
-                                <tr>
-                                    <button class="btn-detail" onclick="window.location.href='detail_task.php?id=<?php echo $task['id']; ?>'">
-                                        <i class="fas fa-eye"></i> Detail
-                                    </button>
-                                </td
+                                </td>
                                 <td>
                                     <form method="POST" style="display: inline;" onsubmit="return confirm('Update status task?')">
                                         <input type="hidden" name="action" value="update_status">
@@ -873,15 +809,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                             <option value="Done" <?php echo $task['status'] == 'Done' ? 'selected' : ''; ?>>Done</option>
                                         </select>
                                     </form>
-                                </td
+                                </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="9" style="text-align: center; padding: 50px;">
+                            <td colspan="8" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-tasks" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada task. Klik "Tambah Task" untuk membuat task baru.
-                             </td
+                            </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
