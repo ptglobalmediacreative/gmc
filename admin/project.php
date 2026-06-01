@@ -69,8 +69,11 @@ $total_row = mysqli_fetch_assoc($total_result);
 $total_data = $total_row['total'];
 $total_pages = ceil($total_data / $limit);
 
-// Proses tambah/edit/hapus project (hanya Director yang bisa)
-if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
+// Cek apakah user memiliki akses untuk edit/hapus/tambah (Director atau Project Coordinator)
+$can_manage = ($user_role == 'Director' || $user_role == 'Project Coordinator');
+
+// Proses tambah/edit/hapus project (hanya Director dan Project Coordinator yang bisa)
+if ($can_manage && $_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         $action = $_POST['action'];
         
@@ -497,6 +500,13 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             color: white;
             border-color: #1e3c72;
         }
+
+        .access-denied {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 12px;
+        }
     </style>
 </head>
 <body>
@@ -521,7 +531,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
 
         <div class="project-header">
             <div>
-                <?php if ($user_role == 'Director'): ?>
+                <?php if ($can_manage): ?>
                     <button class="btn-add" onclick="openAddModal()">
                         <i class="fas fa-plus"></i> Tambah Project
                     </button>
@@ -556,7 +566,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                         <th>End Date</th>
                         <th>Sales</th>
                         <th>Status</th>
-                        <?php if ($user_role == 'Director'): ?>
+                        <?php if ($can_manage): ?>
                             <th>Aksi</th>
                         <?php endif; ?>
                         <th>Task Manager</th>
@@ -578,7 +588,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <?php echo $row['status']; ?>
                                     </span>
                                 </td>
-                                <?php if ($user_role == 'Director'): ?>
+                                <?php if ($can_manage): ?>
                                     <td class="action-buttons">
                                         <button class="btn-edit" onclick="openEditModal(<?php echo $row['id']; ?>)">
                                             <i class="fas fa-edit"></i>
@@ -590,14 +600,14 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <?php endif; ?>
                                 <td>
                                     <button class="btn-detail" onclick="window.location.href='taskdetail.php?project_id=<?php echo $row['id']; ?>'">
-                                        <i class=""></i> Detail
+                                        <i class="fas fa-tasks"></i> Detail
                                     </button>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="<?php echo ($user_role == 'Director') ? '9' : '8'; ?>" style="text-align: center; padding: 50px;">
+                            <td colspan="<?php echo $can_manage ? '9' : '8'; ?>" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-folder-open" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada data project
                             </td>
@@ -626,7 +636,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         <?php endif; ?>
     </div>
 
-    <?php if ($user_role == 'Director'): ?>
+    <?php if ($can_manage): ?>
     <!-- Modal Tambah Project -->
     <div id="addModal" class="modal">
         <div class="modal-content">
@@ -739,6 +749,9 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" id="delete_id">
                 <p>Apakah Anda yakin ingin menghapus project <strong id="delete_name"></strong>?</p>
+                <p style="color: #f5365c; font-size: 12px; margin-top: 10px;">
+                    <i class="fas fa-exclamation-triangle"></i> Perhatian: Menghapus project juga akan menghapus semua task yang terkait!
+                </p>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button type="submit" class="btn-submit" style="background: #f5365c;">Ya, Hapus</button>
                     <button type="button" class="btn-submit" onclick="closeDeleteModal()" style="background: #8898aa;">Batal</button>
