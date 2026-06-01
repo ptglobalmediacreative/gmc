@@ -46,16 +46,12 @@ switch(strtolower($format)) {
 }
 $target_dir = $upload_base_dir . $upload_subdir . "task_" . $task_id . "/";
 
-// Folder untuk screenshot
-$screenshot_dir = "admin/uploads/screenshot/task_" . $task_id . "/";
-
 // Buat tabel jika belum ada
 $brief_table = "CREATE TABLE IF NOT EXISTS task_briefs (
     id INT(11) AUTO_INCREMENT PRIMARY KEY,
     task_id INT(11) NOT NULL,
     google_slide_link TEXT,
     caption TEXT,
-    ss_google_slide TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
@@ -127,40 +123,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if ($_POST['action'] == 'upload_brief') {
             $google_slide_link = mysqli_real_escape_string($conn, $_POST['google_slide_link']);
             $caption = mysqli_real_escape_string($conn, $_POST['caption']);
-            $ss_google_slide = '';
-            
-            // Proses upload screenshot jika ada
-            if (isset($_FILES['ss_google_slide_file']) && $_FILES['ss_google_slide_file']['error'] == 0) {
-                // Buat folder screenshot jika belum ada
-                if (!file_exists($screenshot_dir)) {
-                    mkdir($screenshot_dir, 0777, true);
-                }
-                
-                $screenshot_name = basename($_FILES['ss_google_slide_file']['name']);
-                $screenshot_ext = pathinfo($screenshot_name, PATHINFO_EXTENSION);
-                $screenshot_new_name = time() . '_screenshot.' . $screenshot_ext;
-                $screenshot_target = $screenshot_dir . $screenshot_new_name;
-                
-                // Validasi file gambar
-                $check = getimagesize($_FILES['ss_google_slide_file']['tmp_name']);
-                if ($check !== false) {
-                    if (move_uploaded_file($_FILES['ss_google_slide_file']['tmp_name'], $screenshot_target)) {
-                        $ss_google_slide = $screenshot_target;
-                    }
-                }
-            } else {
-                // Jika tidak ada upload file, gunakan input text (untuk URL)
-                $ss_google_slide = mysqli_real_escape_string($conn, $_POST['ss_google_slide']);
-            }
             
             $check_brief = "SELECT id FROM task_briefs WHERE task_id = $task_id";
             $brief_result = mysqli_query($conn, $check_brief);
             
             if (mysqli_num_rows($brief_result) > 0) {
-                $update_brief = "UPDATE task_briefs SET google_slide_link='$google_slide_link', caption='$caption', ss_google_slide='$ss_google_slide' WHERE task_id=$task_id";
+                $update_brief = "UPDATE task_briefs SET google_slide_link='$google_slide_link', caption='$caption' WHERE task_id=$task_id";
                 mysqli_query($conn, $update_brief);
             } else {
-                $insert_brief = "INSERT INTO task_briefs (task_id, google_slide_link, caption, ss_google_slide) VALUES ($task_id, '$google_slide_link', '$caption', '$ss_google_slide')";
+                $insert_brief = "INSERT INTO task_briefs (task_id, google_slide_link, caption) VALUES ($task_id, '$google_slide_link', '$caption')";
                 mysqli_query($conn, $insert_brief);
             }
             $success = "Brief berhasil diupload!";
@@ -216,19 +187,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
         
-        // Delete Screenshot
-        if ($_POST['action'] == 'delete_screenshot') {
-            $get_brief = "SELECT ss_google_slide FROM task_briefs WHERE task_id = $task_id";
-            $brief_result = mysqli_query($conn, $get_brief);
-            if ($brief_row = mysqli_fetch_assoc($brief_result)) {
-                if (!empty($brief_row['ss_google_slide']) && file_exists($brief_row['ss_google_slide']) && strpos($brief_row['ss_google_slide'], 'admin/uploads/screenshot/') !== false) {
-                    unlink($brief_row['ss_google_slide']);
-                }
-                mysqli_query($conn, "UPDATE task_briefs SET ss_google_slide = '' WHERE task_id = $task_id");
-                $success = "Screenshot berhasil dihapus!";
-            }
-        }
-        
         // Delete Media
         if ($_POST['action'] == 'delete_media') {
             $media_id = (int)$_POST['media_id'];
@@ -261,7 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 $brief_query = "SELECT * FROM task_briefs WHERE task_id = $task_id";
 $brief_result = mysqli_query($conn, $brief_query);
 $brief = mysqli_fetch_assoc($brief_result);
-$has_brief = ($brief && ($brief['google_slide_link'] || $brief['caption'] || $brief['ss_google_slide']));
+$has_brief = ($brief && ($brief['google_slide_link'] || $brief['caption']));
 
 // Ambil data media
 $media_query = "SELECT * FROM task_media WHERE task_id = $task_id ORDER BY uploaded_at DESC";
@@ -406,13 +364,6 @@ function getUserName($conn, $user_id) {
         .form-group textarea {
             resize: vertical;
             min-height: 80px;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 10px;
-            align-items: center;
         }
 
         .btn-primary {
@@ -606,47 +557,6 @@ function getUserName($conn, $user_id) {
             border: 1px solid #eef2f7;
         }
 
-        .brief-screenshot {
-            margin-top: 12px;
-            position: relative;
-            display: inline-block;
-            width: 100%;
-            max-width: 350px;
-        }
-
-        .screenshot-img {
-            width: 100%;
-            border-radius: 10px;
-            border: 1px solid #eef2f7;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-
-        .delete-screenshot-form {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-        }
-
-        .delete-screenshot-btn {
-            background: rgba(245,54,92,0.9);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 28px;
-            height: 28px;
-            cursor: pointer;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .delete-screenshot-btn:hover {
-            background: #f5365c;
-            transform: scale(1.05);
-        }
-
         .path-info {
             background: #e3f2fd;
             padding: 8px 12px;
@@ -732,16 +642,6 @@ function getUserName($conn, $user_id) {
                                     <span style="font-size: 12px; color: #525f7f; line-height: 1.5;"><?php echo nl2br(htmlspecialchars($brief['caption'])); ?></span>
                                 </div>
                                 <?php endif; ?>
-                                
-                                <?php if ($brief['ss_google_slide']): ?>
-                                <div class="brief-screenshot">
-                                    <img src="<?php echo $brief['ss_google_slide']; ?>" alt="Screenshot" class="screenshot-img">
-                                    <form method="POST" onsubmit="return confirm('Hapus screenshot ini?')" class="delete-screenshot-form">
-                                        <input type="hidden" name="action" value="delete_screenshot">
-                                        <button type="submit" class="delete-screenshot-btn"><i class="fas fa-times"></i></button>
-                                    </form>
-                                </div>
-                                <?php endif; ?>
                             </div>
                             <?php else: ?>
                             <div class="brief-display" style="text-align: center; color: #8898aa; padding: 40px;">
@@ -753,7 +653,7 @@ function getUserName($conn, $user_id) {
 
                         <!-- Edit Mode - Form Upload Brief -->
                         <div id="editBriefMode" class="edit-mode">
-                            <form method="POST" enctype="multipart/form-data" class="brief-form">
+                            <form method="POST" class="brief-form">
                                 <input type="hidden" name="action" value="upload_brief">
                                 <div class="form-group">
                                     <label>Google Slide Link</label>
@@ -762,15 +662,6 @@ function getUserName($conn, $user_id) {
                                 <div class="form-group">
                                     <label>Caption</label>
                                     <textarea name="caption" placeholder="Masukkan caption untuk konten..."><?php echo htmlspecialchars($brief['caption'] ?? ''); ?></textarea>
-                                </div>
-                                <div class="form-group">
-                                    <label>Screenshot Google Slide</label>
-                                    <div class="form-row">
-                                        <input type="file" name="ss_google_slide_file" accept="image/*">
-                                        <span style="padding: 0 10px;">atau</span>
-                                        <input type="text" name="ss_google_slide" placeholder="URL gambar (opsional)" value="<?php echo (!empty($brief['ss_google_slide']) && strpos($brief['ss_google_slide'], 'http') === 0) ? htmlspecialchars($brief['ss_google_slide']) : ''; ?>" style="flex: 1;">
-                                    </div>
-                                    <small style="color: #8898aa;">Upload file screenshot (JPG, PNG, GIF) atau masukkan URL gambar</small>
                                 </div>
                                 <div style="display: flex; gap: 10px;">
                                     <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Simpan Brief</button>
