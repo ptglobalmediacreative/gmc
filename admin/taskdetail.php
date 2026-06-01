@@ -17,6 +17,9 @@ $project_id = isset($_GET['project_id']) ? (int)$_GET['project_id'] : 0;
 $user_role = $_SESSION['role'];
 $user_id = $_SESSION['user_id'];
 
+// Cek apakah user memiliki akses untuk manage task (Director atau Project Coordinator)
+$can_manage = ($user_role == 'Director' || $user_role == 'Project Coordinator');
+
 // Ambil data project jika ada project_id
 $project = null;
 if ($project_id > 0) {
@@ -147,8 +150,8 @@ if ($project_id > 0) {
     $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['total'] ?? 0);
 }
 
-// Proses CRUD
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+// Proses CRUD (hanya untuk yang punya akses manage)
+if ($can_manage && $_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         $action = $_POST['action'];
         
@@ -827,10 +830,12 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
 
         <div class="task-header">
             <div style="display: flex; gap: 10px;">
+                <?php if ($can_manage): ?>
                 <button class="btn-add" onclick="openAddModal()">
                     <i class="fas fa-plus"></i> Tambah Task
                 </button>
-                <?php if ($project && $project_id > 0 && $tasks_result && mysqli_num_rows($tasks_result) > 0): ?>
+                <?php endif; ?>
+                <?php if ($can_manage && $project && $project_id > 0 && $tasks_result && mysqli_num_rows($tasks_result) > 0): ?>
                 <button class="btn-delete-task" onclick="openBulkDeleteModal()">
                     <i class="fas fa-trash-alt"></i> Hapus Task
                 </button>
@@ -852,10 +857,12 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
 
         <?php if ($project && $project_id > 0): ?>
         <div class="task-table">
-            <table>
+            <tr>
                 <thead>
                     <tr>
+                        <?php if ($can_manage): ?>
                         <th class="checkbox-col"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+                        <?php endif; ?>
                         <th>No</th>
                         <th>Judul</th>
                         <th>Format</th>
@@ -863,7 +870,9 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                         <th>Due Date</th>
                         <th>Priority</th>
                         <th>Status</th>
+                        <?php if ($can_manage): ?>
                         <th>Aksi</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -871,7 +880,9 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                         <?php $no = $offset + 1; ?>
                         <?php while ($task = mysqli_fetch_assoc($tasks_result)): ?>
                             <tr>
+                                <?php if ($can_manage): ?>
                                 <td class="checkbox-col"><input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>"></td>
+                                <?php endif; ?>
                                 <td><?php echo $no++; ?></td>
                                 <td>
                                     <a href="infotask.php?id=<?php echo $task['id']; ?>" style="color: #1e3c72; text-decoration: none; font-weight: bold;">
@@ -935,6 +946,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                         <?php echo $task['status']; ?>
                                     </span>
                                 </td>
+                                <?php if ($can_manage): ?>
                                 <td>
                                     <form method="POST" style="display: inline;">
                                         <input type="hidden" name="action" value="update_status">
@@ -948,13 +960,14 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
                                 </td>
+                                <?php endif; ?>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="9" style="text-align: center; padding: 50px;">
+                            <td colspan="<?php echo $can_manage ? '9' : '8'; ?>" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-tasks" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
-                                Belum ada task. Klik "Tambah Task" untuk membuat task baru.
+                                Belum ada task.
                             </td>
                         </tr>
                     <?php endif; ?>
@@ -982,11 +995,12 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
         <?php else: ?>
         <div class="alert alert-info" style="text-align: center; padding: 50px;">
             <i class="fas fa-info-circle" style="font-size: 40px; margin-bottom: 10px; display: block;"></i>
-            Silakan tambah task baru.
+            Silakan pilih project terlebih dahulu.
         </div>
         <?php endif; ?>
     </div>
 
+    <?php if ($can_manage): ?>
     <!-- Modal Tambah Task -->
     <div id="addModal" class="modal">
         <div class="modal-content">
@@ -1102,6 +1116,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
             </form>
         </div>
     </div>
+    <?php endif; ?>
 
     <script>
         function openAddModal() {
