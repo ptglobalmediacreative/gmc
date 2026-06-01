@@ -866,7 +866,6 @@ $has_media = count($media_items) > 0;
     </style>
 </head>
 <body>
-    <?php include "sidebar.php"; ?>
     <div class="container">
         <!-- Task Header -->
         <div class="task-header">
