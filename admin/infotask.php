@@ -658,14 +658,32 @@ $has_media = count($media_items) > 0;
             cursor: pointer;
         }
 
-        .status-checked {
-            color: #2dce89;
-            font-size: 12px;
+        .btn-done {
+            background: #2dce89;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background 0.2s;
         }
 
-        .status-not-checked {
-            color: #f5365c;
+        .btn-done:hover {
+            background: #28a745;
+        }
+
+        .status-done-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #2dce89;
             font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-done-label i {
+            font-size: 14px;
         }
 
         .status-date {
@@ -985,16 +1003,23 @@ $has_media = count($media_items) > 0;
                                 <div class="status-assignee"><?php echo htmlspecialchars($assignee ?: '-'); ?></div>
                             </div>
                             <div class="status-right">
-                                <form method="POST" onchange="this.submit()" style="display: inline;">
-                                    <input type="hidden" name="action" value="update_status">
-                                    <input type="hidden" name="status_key" value="<?php echo $key; ?>">
-                                    <input type="hidden" name="is_checked" value="<?php echo ($status && $status['is_checked']) ? 1 : 0; ?>">
-                                    <input type="checkbox" name="is_checked_temp" class="status-checkbox" value="1" <?php echo ($status && $status['is_checked']) ? 'checked' : ''; ?> onchange="this.form.submit()">
-                                </form>
-                                <?php if ($status && $status['is_checked']): ?>
+                                <?php if ($status && $status['is_checked'] == 1): ?>
+                                    <!-- Jika sudah centang, tampilkan tombol Done (non-clickable) dan tanggal -->
+                                    <div class="status-done-label">
+                                        <i class="fas fa-check-circle"></i> Done
+                                    </div>
                                     <div class="status-date">
                                         <?php echo date('d/m/Y', strtotime($status['checked_at'])); ?>
                                     </div>
+                                <?php else: ?>
+                                    <!-- Jika belum centang, tampilkan checkbox -->
+                                    <form method="POST" onchange="this.submit()" style="display: inline;">
+                                        <input type="hidden" name="action" value="update_status">
+                                        <input type="hidden" name="status_key" value="<?php echo $key; ?>">
+                                        <input type="hidden" name="is_checked" value="1">
+                                        <input type="hidden" name="notes" value="">
+                                        <input type="checkbox" class="status-checkbox" value="1" onchange="this.form.submit()">
+                                    </form>
                                 <?php endif; ?>
                             </div>
                         </div>
