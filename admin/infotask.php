@@ -620,7 +620,7 @@ $has_media = count($media_items) > 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 0;
+            padding: 12px 0;
             border-bottom: 1px solid #eef2f7;
         }
 
@@ -628,27 +628,48 @@ $has_media = count($media_items) > 0;
             border-bottom: none;
         }
 
+        .status-left {
+            flex: 1;
+        }
+
         .status-name {
             font-size: 13px;
-            color: #525f7f;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-bottom: 4px;
         }
 
         .status-assignee {
-            font-size: 12px;
-            color: #1e3c72;
-            font-weight: 500;
+            font-size: 11px;
+            color: #8898aa;
+        }
+
+        .status-right {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+
+        .status-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
         }
 
         .status-checked {
             color: #2dce89;
+            font-size: 12px;
         }
 
         .status-not-checked {
             color: #f5365c;
+            font-size: 12px;
         }
 
         .status-date {
-            font-size: 11px;
+            font-size: 10px;
             color: #8898aa;
         }
 
@@ -959,21 +980,20 @@ $has_media = count($media_items) > 0;
                             }
                         ?>
                         <div class="status-item-detail">
-                            <div>
+                            <div class="status-left">
                                 <div class="status-name"><?php echo $status_list[$key]; ?></div>
                                 <div class="status-assignee"><?php echo htmlspecialchars($assignee ?: '-'); ?></div>
                             </div>
-                            <div style="text-align: right;">
+                            <div class="status-right">
+                                <form method="POST" onchange="this.submit()" style="display: inline;">
+                                    <input type="hidden" name="action" value="update_status">
+                                    <input type="hidden" name="status_key" value="<?php echo $key; ?>">
+                                    <input type="hidden" name="is_checked" value="<?php echo ($status && $status['is_checked']) ? 1 : 0; ?>">
+                                    <input type="checkbox" name="is_checked_temp" class="status-checkbox" value="1" <?php echo ($status && $status['is_checked']) ? 'checked' : ''; ?> onchange="this.form.submit()">
+                                </form>
                                 <?php if ($status && $status['is_checked']): ?>
-                                    <div class="status-checked">
-                                        <i class="fas fa-check-circle"></i> Done
-                                    </div>
                                     <div class="status-date">
                                         <?php echo date('d/m/Y', strtotime($status['checked_at'])); ?>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="status-not-checked">
-                                        <i class="fas fa-clock"></i> Pending
                                     </div>
                                 <?php endif; ?>
                             </div>
