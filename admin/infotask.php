@@ -164,6 +164,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 mysqli_query($conn, $insert_brief);
             }
             $success = "Brief berhasil diupload!";
+            // Refresh halaman untuk menampilkan mode read-only
+            echo "<script>window.location.href='infotask.php?id=$task_id';</script>";
+            exit();
         }
         
         // Upload Media
@@ -258,6 +261,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 $brief_query = "SELECT * FROM task_briefs WHERE task_id = $task_id";
 $brief_result = mysqli_query($conn, $brief_query);
 $brief = mysqli_fetch_assoc($brief_result);
+$has_brief = ($brief && ($brief['google_slide_link'] || $brief['caption'] || $brief['ss_google_slide']));
 
 // Ambil data media
 $media_query = "SELECT * FROM task_media WHERE task_id = $task_id ORDER BY uploaded_at DESC";
@@ -366,6 +370,9 @@ function getUserName($conn, $user_id) {
             font-weight: 600;
             font-size: 16px;
             color: #1e3c72;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .card-header i {
@@ -408,16 +415,6 @@ function getUserName($conn, $user_id) {
             align-items: center;
         }
 
-        .form-row .btn-secondary {
-            height: 42px;
-            background: #6c757d;
-            color: white;
-            padding: 0 15px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
         .btn-primary {
             background: #1e3c72;
             color: white;
@@ -433,6 +430,23 @@ function getUserName($conn, $user_id) {
 
         .btn-primary:hover {
             background: #2a5298;
+        }
+
+        .btn-edit {
+            background: #ffc107;
+            color: #1e3c72;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-edit:hover {
+            background: #e0a800;
         }
 
         .btn-danger {
@@ -582,7 +596,6 @@ function getUserName($conn, $user_id) {
             background: #f8f9fa;
             padding: 15px;
             border-radius: 8px;
-            margin-top: 15px;
         }
 
         .brief-display p {
@@ -634,6 +647,22 @@ function getUserName($conn, $user_id) {
             cursor: pointer;
             font-size: 12px;
         }
+
+        .edit-mode {
+            display: none;
+        }
+
+        .edit-mode.show {
+            display: block;
+        }
+
+        .view-mode {
+            display: block;
+        }
+
+        .view-mode.hide {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -670,56 +699,84 @@ function getUserName($conn, $user_id) {
                 <!-- Konten Brief Section -->
                 <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-file-alt"></i> Konten Brief
+                        <span><i class="fas fa-file-alt"></i> Konten Brief</span>
+                        <?php if ($has_brief): ?>
+                        <button class="btn-edit" onclick="toggleEditBrief()">
+                            <i class="fas fa-edit"></i> Edit Brief
+                        </button>
+                        <?php endif; ?>
                     </div>
                     <div class="card-body">
-                        <form method="POST" enctype="multipart/form-data" class="brief-form">
-                            <input type="hidden" name="action" value="upload_brief">
-                            <div class="form-group">
-                                <label>Google Slide Link</label>
-                                <input type="url" name="google_slide_link" placeholder="https://docs.google.com/presentation/..." value="<?php echo htmlspecialchars($brief['google_slide_link'] ?? ''); ?>">
-                            </div>
-                            <div class="form-group">
-                                <label>Caption</label>
-                                <textarea name="caption" placeholder="Masukkan caption untuk konten..."><?php echo htmlspecialchars($brief['caption'] ?? ''); ?></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label>Screenshot Google Slide</label>
-                                <div class="form-row">
-                                    <input type="file" name="ss_google_slide_file" accept="image/*">
-                                    <span style="padding: 0 10px;">atau</span>
-                                    <input type="text" name="ss_google_slide" placeholder="URL gambar (opsional)" value="" style="flex: 1;">
+                        <!-- View Mode - Tampilan Brief yang sudah diupload -->
+                        <div id="viewBriefMode" class="view-mode <?php echo $has_brief ? '' : 'hide'; ?>">
+                            <?php if ($has_brief): ?>
+                            <div class="brief-display">
+                                <?php if ($brief['google_slide_link']): ?>
+                                <p>
+                                    <i class="fab fa-google"></i> 
+                                    <strong>Google Slide Link:</strong><br>
+                                    <a href="<?php echo $brief['google_slide_link']; ?>" target="_blank"><?php echo $brief['google_slide_link']; ?></a>
+                                </p>
+                                <?php endif; ?>
+                                
+                                <?php if ($brief['caption']): ?>
+                                <p>
+                                    <i class="fas fa-quote-left"></i> 
+                                    <strong>Caption:</strong><br>
+                                    <?php echo nl2br(htmlspecialchars($brief['caption'])); ?>
+                                </p>
+                                <?php endif; ?>
+                                
+                                <?php if ($brief['ss_google_slide']): ?>
+                                <div>
+                                    <strong><i class="fas fa-image"></i> Screenshot Google Slide:</strong>
+                                    <div class="screenshot-preview">
+                                        <img src="<?php echo $brief['ss_google_slide']; ?>" alt="Screenshot Google Slide">
+                                        <form method="POST" onsubmit="return confirm('Hapus screenshot ini?')" style="display: inline;">
+                                            <input type="hidden" name="action" value="delete_screenshot">
+                                            <button type="submit" class="delete-screenshot"><i class="fas fa-times"></i></button>
+                                        </form>
+                                    </div>
                                 </div>
-                                <small style="color: #8898aa;">Upload file screenshot (JPG, PNG, GIF) atau masukkan URL gambar</small>
+                                <?php endif; ?>
                             </div>
-                            <button type="submit" class="btn-primary"><i class="fas fa-upload"></i> Upload Brief</button>
-                        </form>
-
-                        <!-- Tampilkan screenshot yang sudah diupload -->
-                        <?php if ($brief && !empty($brief['ss_google_slide'])): ?>
-                        <div class="brief-display">
-                            <h4>📸 Screenshot Google Slide:</h4>
-                            <div class="screenshot-preview">
-                                <img src="<?php echo $brief['ss_google_slide']; ?>" alt="Screenshot Google Slide">
-                                <form method="POST" onsubmit="return confirm('Hapus screenshot ini?')">
-                                    <input type="hidden" name="action" value="delete_screenshot">
-                                    <button type="submit" class="delete-screenshot"><i class="fas fa-times"></i></button>
-                                </form>
+                            <?php else: ?>
+                            <div class="brief-display" style="text-align: center; color: #8898aa; padding: 40px;">
+                                <i class="fas fa-file-alt" style="font-size: 48px; margin-bottom: 10px; display: block;"></i>
+                                Belum ada brief. Klik tombol Edit untuk membuat brief.
                             </div>
-                        </div>
-                        <?php endif; ?>
-
-                        <?php if ($brief && ($brief['google_slide_link'] || $brief['caption'])): ?>
-                        <div class="brief-display">
-                            <h4>📋 Brief yang sudah diupload:</h4>
-                            <?php if ($brief['google_slide_link']): ?>
-                                <p><i class="fab fa-google"></i> <a href="<?php echo $brief['google_slide_link']; ?>" target="_blank">Google Slide Link</a></p>
-                            <?php endif; ?>
-                            <?php if ($brief['caption']): ?>
-                                <p><i class="fas fa-quote-left"></i> Caption: <?php echo nl2br(htmlspecialchars($brief['caption'])); ?></p>
                             <?php endif; ?>
                         </div>
-                        <?php endif; ?>
+
+                        <!-- Edit Mode - Form Upload Brief -->
+                        <div id="editBriefMode" class="edit-mode">
+                            <form method="POST" enctype="multipart/form-data" class="brief-form">
+                                <input type="hidden" name="action" value="upload_brief">
+                                <div class="form-group">
+                                    <label>Google Slide Link</label>
+                                    <input type="url" name="google_slide_link" placeholder="https://docs.google.com/presentation/..." value="<?php echo htmlspecialchars($brief['google_slide_link'] ?? ''); ?>">
+                                </div>
+                                <div class="form-group">
+                                    <label>Caption</label>
+                                    <textarea name="caption" placeholder="Masukkan caption untuk konten..."><?php echo htmlspecialchars($brief['caption'] ?? ''); ?></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Screenshot Google Slide</label>
+                                    <div class="form-row">
+                                        <input type="file" name="ss_google_slide_file" accept="image/*">
+                                        <span style="padding: 0 10px;">atau</span>
+                                        <input type="text" name="ss_google_slide" placeholder="URL gambar (opsional)" value="<?php echo (!empty($brief['ss_google_slide']) && strpos($brief['ss_google_slide'], 'http') === 0) ? htmlspecialchars($brief['ss_google_slide']) : ''; ?>" style="flex: 1;">
+                                    </div>
+                                    <small style="color: #8898aa;">Upload file screenshot (JPG, PNG, GIF) atau masukkan URL gambar</small>
+                                </div>
+                                <div style="display: flex; gap: 10px;">
+                                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Simpan Brief</button>
+                                    <?php if ($has_brief): ?>
+                                    <button type="button" class="btn-edit" onclick="toggleEditBrief()" style="background: #6c757d; color: white;">Batal</button>
+                                    <?php endif; ?>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
 
@@ -846,5 +903,27 @@ function getUserName($conn, $user_id) {
             </div>
         </div>
     </div>
+
+    <script>
+        function toggleEditBrief() {
+            const viewMode = document.getElementById('viewBriefMode');
+            const editMode = document.getElementById('editBriefMode');
+            
+            if (viewMode.classList.contains('hide')) {
+                viewMode.classList.remove('hide');
+                editMode.classList.remove('show');
+            } else {
+                viewMode.classList.add('hide');
+                editMode.classList.add('show');
+            }
+        }
+        
+        // Jika belum ada brief, langsung tampilkan form edit
+        <?php if (!$has_brief): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleEditBrief();
+        });
+        <?php endif; ?>
+    </script>
 </body>
 </html>
