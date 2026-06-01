@@ -120,37 +120,60 @@ foreach ($status_list as $key => $label) {
     mysqli_query($conn, $insert_status);
 }
 
-// Ambil data assignment staff untuk task ini
+// Ambil data assignment staff untuk task ini (lengkap dengan id dan name)
 $assignment_query = "SELECT u.id, u.name, u.role 
                      FROM task_assignments ta 
                      JOIN users u ON ta.user_id = u.id 
                      WHERE ta.task_id = $task_id";
 $assignment_result = mysqli_query($conn, $assignment_query);
 $assignments = [];
+$assigned_user_ids = [];
 while ($row = mysqli_fetch_assoc($assignment_result)) {
     $assignments[] = $row;
+    $assigned_user_ids[] = $row['id'];
 }
 
-// Cari staff berdasarkan role
+// Cari staff berdasarkan role dan nama untuk mapping assignee
 $konten_brief_staff = '';
+$konten_brief_staff_id = 0;
 $designer_staff = '';
+$designer_staff_id = 0;
 $project_koor_staff = '';
+$project_koor_staff_id = 0;
 $director_staff = '';
+$director_staff_id = 0;
 
 foreach ($assignments as $staff) {
     if ($staff['role'] == 'Content Brief') {
         $konten_brief_staff = $staff['name'];
+        $konten_brief_staff_id = $staff['id'];
     }
     if ($staff['role'] == 'Designer') {
         $designer_staff = $staff['name'];
+        $designer_staff_id = $staff['id'];
     }
     if ($staff['role'] == 'Project Coordinator') {
         $project_koor_staff = $staff['name'];
+        $project_koor_staff_id = $staff['id'];
     }
     if ($staff['role'] == 'Director') {
         $director_staff = $staff['name'];
+        $director_staff_id = $staff['id'];
     }
 }
+
+// Mapping assignee untuk setiap status (berdasarkan nama)
+$status_assignee_map = [
+    'konten_brief' => $konten_brief_staff,
+    'revisi_konten' => $konten_brief_staff,
+    'review_1' => $konten_brief_staff,
+    'designer' => $designer_staff,
+    'shooting' => $designer_staff,
+    'editing' => $designer_staff,
+    'revisi_design' => $designer_staff,
+    'review_2' => $project_koor_staff,
+    'posting' => $director_staff
+];
 
 // Proses upload brief
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -245,28 +268,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $is_checked = isset($_POST['is_checked']) ? 1 : 0;
             $notes = mysqli_real_escape_string($conn, $_POST['notes']);
             
-            // Cek apakah user berhak update status ini
-            $status_role_map = [
-                'konten_brief' => 'Content Brief',
-                'revisi_konten' => 'Content Brief',
-                'review_1' => 'Content Brief',
-                'designer' => 'Designer',
-                'shooting' => 'Designer',
-                'editing' => 'Designer',
-                'revisi_design' => 'Designer',
-                'review_2' => 'Project Coordinator',
-                'posting' => 'Director'
-            ];
-            
-            $required_role = $status_role_map[$status_key] ?? '';
+            // Cek apakah user berhak update status ini (berdasarkan nama assignee)
+            $required_assignee = $status_assignee_map[$status_key] ?? '';
             $user_allowed = false;
             
-            // Cek apakah user punya role yang sesuai
-            if ($required_role == $user_role) {
+            // Cek apakah nama user yang login sama dengan assignee status tersebut
+            if ($required_assignee == $user_name) {
                 $user_allowed = true;
             }
             
-            // Jika user adalah admin/director, bisa centang semua
+            // Jika user adalah Director atau Administrator, bisa centang semua
             if ($user_role == 'Director' || $user_role == 'Administrator') {
                 $user_allowed = true;
             }
@@ -313,8 +324,9 @@ function getUserName($conn, $user_id) {
     return '-';
 }
 
-// Ambil nama pembuat task
+// Ambil nama pembuat task (tanpa jam)
 $created_by_name = getUserName($conn, $task['created_by']);
+$created_date_only = date('d M Y', strtotime($task['created_at']));
 
 // Kumpulkan media items untuk lightbox
 $media_items = [];
@@ -332,6 +344,7 @@ $has_media = count($media_items) > 0;
     <title><?php echo htmlspecialchars($task['task_name']); ?> - Detail Task</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        /* semua style sama seperti sebelumnya */
         * {
             margin: 0;
             padding: 0;
@@ -349,7 +362,6 @@ $has_media = count($media_items) > 0;
             padding: 20px;
         }
 
-        /* Task Header Styles */
         .task-header {
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             color: white;
@@ -426,30 +438,11 @@ $has_media = count($media_items) > 0;
             margin-left: 5px;
         }
 
-        .priority-text.priority-urgent {
-            background: #f5365c;
-            color: white;
-        }
-
-        .priority-text.priority-high {
-            background: #fb6340;
-            color: white;
-        }
-
-        .priority-text.priority-medium {
-            background: #ffc107;
-            color: #1e3c72;
-        }
-
-        .priority-text.priority-low {
-            background: #2dce89;
-            color: white;
-        }
-
-        .priority-text.priority-done {
-            background: #11cdef;
-            color: white;
-        }
+        .priority-text.priority-urgent { background: #f5365c; color: white; }
+        .priority-text.priority-high { background: #fb6340; color: white; }
+        .priority-text.priority-medium { background: #ffc107; color: #1e3c72; }
+        .priority-text.priority-low { background: #2dce89; color: white; }
+        .priority-text.priority-done { background: #11cdef; color: white; }
 
         .content-grid {
             display: grid;
@@ -602,7 +595,6 @@ $has_media = count($media_items) > 0;
             color: #11cdef;
         }
 
-        /* Lightbox Modal */
         .lightbox-modal {
             display: none;
             position: fixed;
@@ -688,7 +680,6 @@ $has_media = count($media_items) > 0;
             right: 20px;
         }
 
-        /* Task Details Styles */
         .task-details-list {
             list-style: none;
         }
@@ -980,7 +971,6 @@ $has_media = count($media_items) > 0;
                         <?php endif; ?>
                     </div>
                     <div class="card-body">
-                        <!-- View Mode - Tampilan Media yang sudah diupload -->
                         <div id="viewMediaMode" class="view-mode <?php echo $has_media ? '' : 'hide'; ?>">
                             <?php if ($has_media): ?>
                             <div class="media-gallery">
@@ -1024,7 +1014,6 @@ $has_media = count($media_items) > 0;
                             <?php endif; ?>
                         </div>
 
-                        <!-- Edit Mode - Form Upload Media -->
                         <div id="editMediaMode" class="edit-mode <?php echo !$has_media ? 'show' : ''; ?>">
                             <form method="POST" enctype="multipart/form-data">
                                 <input type="hidden" name="action" value="upload_media">
@@ -1063,7 +1052,7 @@ $has_media = count($media_items) > 0;
                         <ul class="task-details-list">
                             <li class="task-details-item">
                                 <span class="task-details-label">Added By</span>
-                                <span class="task-details-value"><?php echo htmlspecialchars($created_by_name); ?> on <?php echo date('d M Y - H:i', strtotime($task['created_at'])); ?></span>
+                                <span class="task-details-value"><?php echo htmlspecialchars($created_by_name); ?> on <?php echo $created_date_only; ?></span>
                             </li>
                             <li class="task-details-item">
                                 <span class="task-details-label">Project</span>
@@ -1087,39 +1076,17 @@ $has_media = count($media_items) > 0;
                         if ($format == 'Video') {
                             $status_order = ['konten_brief', 'revisi_konten', 'shooting', 'editing', 'review_1', 'review_2', 'revisi_design', 'posting'];
                         }
-                        
-                        // Mapping role untuk setiap status
-                        $status_role_map = [
-                            'konten_brief' => 'Content Brief',
-                            'revisi_konten' => 'Content Brief',
-                            'review_1' => 'Content Brief',
-                            'designer' => 'Designer',
-                            'shooting' => 'Designer',
-                            'editing' => 'Designer',
-                            'revisi_design' => 'Designer',
-                            'review_2' => 'Project Coordinator',
-                            'posting' => 'Director'
-                        ];
                         ?>
                         <?php foreach ($status_order as $key): ?>
                         <?php if (isset($status_list[$key])): ?>
                         <?php $status = $status_data[$key] ?? null; ?>
                         <?php 
-                            $assignee = '';
-                            if ($key == 'konten_brief' || $key == 'revisi_konten' || $key == 'review_1') {
-                                $assignee = $konten_brief_staff;
-                            } elseif ($key == 'designer' || $key == 'shooting' || $key == 'editing' || $key == 'revisi_design') {
-                                $assignee = $designer_staff;
-                            } elseif ($key == 'review_2') {
-                                $assignee = $project_koor_staff;
-                            } elseif ($key == 'posting') {
-                                $assignee = $director_staff;
-                            }
+                            // Ambil assignee berdasarkan mapping nama
+                            $assignee = $status_assignee_map[$key] ?? '';
                             
-                            // Cek apakah user berhak mengubah status ini
-                            $required_role = $status_role_map[$key] ?? '';
+                            // Cek apakah user yang login berhak mengubah status ini (berdasarkan nama assignee)
                             $can_check = false;
-                            if ($required_role == $user_role) {
+                            if (!empty($assignee) && $assignee == $user_name) {
                                 $can_check = true;
                             }
                             // Director atau Administrator bisa centang semua
@@ -1134,7 +1101,6 @@ $has_media = count($media_items) > 0;
                             </div>
                             <div class="status-right">
                                 <?php if ($status && $status['is_checked'] == 1): ?>
-                                    <!-- Jika sudah centang, tampilkan Done dan tanggal -->
                                     <div class="status-done-label">
                                         <i class="fas fa-check-circle"></i> Done
                                     </div>
@@ -1142,9 +1108,7 @@ $has_media = count($media_items) > 0;
                                         <?php echo date('d/m/Y', strtotime($status['checked_at'])); ?>
                                     </div>
                                 <?php else: ?>
-                                    <!-- Jika belum centang -->
                                     <?php if ($can_check): ?>
-                                        <!-- User berhak centang -->
                                         <form method="POST" onchange="this.submit()" style="display: inline;">
                                             <input type="hidden" name="action" value="update_status">
                                             <input type="hidden" name="status_key" value="<?php echo $key; ?>">
@@ -1153,7 +1117,6 @@ $has_media = count($media_items) > 0;
                                             <input type="checkbox" class="status-checkbox" value="1" onchange="this.form.submit()">
                                         </form>
                                     <?php else: ?>
-                                        <!-- User tidak berhak centang, tampilkan checkbox disabled -->
                                         <input type="checkbox" class="status-checkbox-disabled" disabled>
                                     <?php endif; ?>
                                 <?php endif; ?>
