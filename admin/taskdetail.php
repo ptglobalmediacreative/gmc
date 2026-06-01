@@ -71,57 +71,19 @@ function calculatePriority($due_date) {
     }
 }
 
-// Fungsi untuk mengecek apakah semua status checklist sudah selesai untuk suatu task
-function isAllStatusCompleted($conn, $task_id) {
-    $check_query = "SELECT COUNT(*) as total, 
-                           SUM(CASE WHEN is_checked = 1 THEN 1 ELSE 0 END) as completed
-                    FROM task_status_checklist 
-                    WHERE task_id = $task_id";
-    $check_result = mysqli_query($conn, $check_query);
-    $check_row = mysqli_fetch_assoc($check_result);
-    
-    // Jika total status > 0 dan semua status sudah dicentang
-    if ($check_row['total'] > 0 && $check_row['total'] == $check_row['completed']) {
-        return true;
-    }
-    return false;
-}
-
-// Update priority semua task berdasarkan deadline dan cek status checklist
+// Update priority semua task berdasarkan deadline
 if ($project_id > 0) {
-    // Ambil semua task dalam project ini
-    $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
-    $tasks_all_result = mysqli_query($conn, $tasks_query_all);
-    
-    while ($task_row = mysqli_fetch_assoc($tasks_all_result)) {
-        $task_id_loop = $task_row['id'];
-        $due_date = $task_row['due_date'];
-        
-        // Update priority berdasarkan deadline
-        $new_priority = calculatePriority($due_date);
-        
-        // Cek apakah semua status checklist sudah selesai
-        $all_completed = isAllStatusCompleted($conn, $task_id_loop);
-        
-        if ($all_completed) {
-            // Jika semua status sudah selesai, set status task menjadi Done
-            $update_task = "UPDATE tasks SET status = 'Done', priority = 'Done' WHERE id = $task_id_loop";
-            mysqli_query($conn, $update_task);
-        } else {
-            // Update priority saja
-            $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id_loop";
-            mysqli_query($conn, $update_priority);
-            
-            // Jika status task sebelumnya Done tapi checklist belum semua selesai, kembalikan ke In Progress
-            $check_task_status = "SELECT status FROM tasks WHERE id = $task_id_loop";
-            $status_result = mysqli_query($conn, $check_task_status);
-            $status_row = mysqli_fetch_assoc($status_result);
-            if ($status_row['status'] == 'Done') {
-                $update_task_status = "UPDATE tasks SET status = 'In Progress' WHERE id = $task_id_loop";
-                mysqli_query($conn, $update_task_status);
-            }
-        }
+    $update_priority_query = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
+    $update_priority_result = mysqli_query($conn, $update_priority_query);
+    while ($task_row = mysqli_fetch_assoc($update_priority_result)) {
+        $new_priority = calculatePriority($task_row['due_date']);
+        $task_id = $task_row['id'];
+        $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id";
+        mysqli_query($conn, $update_priority);
     }
+    
+    $update_done_priority = "UPDATE tasks SET priority = 'Done' WHERE project_id = $project_id AND status = 'Done'";
+    mysqli_query($conn, $update_done_priority);
 }
 
 // Pagination
@@ -344,9 +306,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Task Detail - <?php echo $project ? htmlspecialchars($project['kode']) : 'Task Manager'; ?> - Global Media Creative</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Style sama seperti sebelumnya, tidak diubah -->
     <style>
-        /* semua style sama seperti kode yang Anda berikan */
         * {
             margin: 0;
             padding: 0;
