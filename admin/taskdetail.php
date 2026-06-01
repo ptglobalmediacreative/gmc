@@ -30,6 +30,7 @@ $create_table = "CREATE TABLE IF NOT EXISTS tasks (
     id INT(11) AUTO_INCREMENT PRIMARY KEY,
     project_id INT(11) NOT NULL,
     task_name VARCHAR(255) NOT NULL,
+    format ENUM('Video', 'Image', 'Motion') DEFAULT 'Image',
     priority ENUM('Low', 'Medium', 'High', 'Urgent', 'Done') DEFAULT 'Medium',
     status ENUM('To Do', 'In Progress', 'Review', 'Done') DEFAULT 'In Progress',
     start_date DATE,
@@ -101,20 +102,28 @@ if ($project_id > 0) {
         $where .= " AND status = '$status_filter'";
     }
     
-    $tasks_query = "SELECT * FROM tasks $where ORDER BY 
-        CASE priority 
-            WHEN 'Urgent' THEN 1 
-            WHEN 'High' THEN 2 
-            WHEN 'Medium' THEN 3 
-            WHEN 'Low' THEN 4 
-            WHEN 'Done' THEN 5
-            ELSE 6 
-        END ASC, 
-        due_date ASC 
-        LIMIT $offset, $limit";
+    $tasks_query = "SELECT t.*, 
+                    GROUP_CONCAT(u.name SEPARATOR ', ') as assigned_staff,
+                    GROUP_CONCAT(u.id SEPARATOR ',') as assigned_staff_ids
+                    FROM tasks t
+                    LEFT JOIN task_assignments ta ON t.id = ta.task_id
+                    LEFT JOIN users u ON ta.user_id = u.id
+                    $where 
+                    GROUP BY t.id
+                    ORDER BY 
+                    CASE t.priority 
+                        WHEN 'Urgent' THEN 1 
+                        WHEN 'High' THEN 2 
+                        WHEN 'Medium' THEN 3 
+                        WHEN 'Low' THEN 4 
+                        WHEN 'Done' THEN 5
+                        ELSE 6 
+                    END ASC, 
+                    t.due_date ASC 
+                    LIMIT $offset, $limit";
     $tasks_result = mysqli_query($conn, $tasks_query);
     
-    $total_query = "SELECT COUNT(*) as total FROM tasks $where";
+    $total_query = "SELECT COUNT(DISTINCT t.id) as total FROM tasks t $where";
     $total_result = mysqli_query($conn, $total_query);
     $total_row = mysqli_fetch_assoc($total_result);
     $total_data = $total_row['total'];
@@ -145,8 +154,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         if ($action == 'add') {
             $task_name = mysqli_real_escape_string($conn, trim($_POST['task_name']));
+            $format = mysqli_real_escape_string($conn, $_POST['format']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
+            $assigned_staff = isset($_POST['assigned_staff']) ? $_POST['assigned_staff'] : [];
             
             if ($project_id == 0) {
                 $kode_project = "PRJ_" . date('Ymd_His');
@@ -161,9 +172,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $status = "In Progress";
             $created_by = $user_id;
             
-            $insert = "INSERT INTO tasks (project_id, task_name, priority, status, start_date, due_date, created_by) 
-                       VALUES ('$project_id_baru', '$task_name', '$priority', '$status', '$start_date', '$due_date', '$created_by')";
+            $insert = "INSERT INTO tasks (project_id, task_name, format, priority, status, start_date, due_date, created_by) 
+                       VALUES ('$project_id_baru', '$task_name', '$format', '$priority', '$status', '$start_date', '$due_date', '$created_by')";
+            
             if (mysqli_query($conn, $insert)) {
+                $task_id_baru = mysqli_insert_id($conn);
+                
+                // Insert assignments
+                foreach ($assigned_staff as $staff_id) {
+                    $staff_id = (int)$staff_id;
+                    $insert_assign = "INSERT INTO task_assignments (task_id, user_id) VALUES ('$task_id_baru', '$staff_id')";
+                    mysqli_query($conn, $insert_assign);
+                }
+                
                 $success = "Task berhasil ditambahkan!";
                 echo "<script>window.location.href='taskdetail.php?project_id=$project_id_baru';</script>";
             } else {
@@ -174,12 +195,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         elseif ($action == 'edit') {
             $id = (int)$_POST['id'];
             $task_name = mysqli_real_escape_string($conn, $_POST['task_name']);
+            $format = mysqli_real_escape_string($conn, $_POST['format']);
             $start_date = mysqli_real_escape_string($conn, $_POST['start_date']);
             $due_date = mysqli_real_escape_string($conn, $_POST['due_date']);
+            $assigned_staff = isset($_POST['assigned_staff']) ? $_POST['assigned_staff'] : [];
             
-            $update = "UPDATE tasks SET task_name='$task_name', start_date='$start_date', due_date='$due_date' WHERE id=$id";
+            $update = "UPDATE tasks SET task_name='$task_name', format='$format', start_date='$start_date', due_date='$due_date' WHERE id=$id";
             
             if (mysqli_query($conn, $update)) {
+                // Delete old assignments
+                mysqli_query($conn, "DELETE FROM task_assignments WHERE task_id=$id");
+                
+                // Insert new assignments
+                foreach ($assigned_staff as $staff_id) {
+                    $staff_id = (int)$staff_id;
+                    $insert_assign = "INSERT INTO task_assignments (task_id, user_id) VALUES ('$id', '$staff_id')";
+                    mysqli_query($conn, $insert_assign);
+                }
+                
                 $success = "Task berhasil diupdate!";
                 $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$id");
                 $task_row = mysqli_fetch_assoc($task_data);
@@ -194,6 +227,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$id");
             $task_row = mysqli_fetch_assoc($task_data);
             $current_project_id = $task_row['project_id'];
+            
+            // Delete assignments first
+            mysqli_query($conn, "DELETE FROM task_assignments WHERE task_id=$id");
             
             $delete = "DELETE FROM tasks WHERE id=$id";
             if (mysqli_query($conn, $delete)) {
@@ -214,6 +250,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $task_data = mysqli_query($conn, "SELECT project_id FROM tasks WHERE id=$tid");
                 $task_row = mysqli_fetch_assoc($task_data);
                 $current_project_id = $task_row['project_id'];
+                
+                // Delete assignments first
+                mysqli_query($conn, "DELETE FROM task_assignments WHERE task_id=$tid");
                 
                 $delete = "DELETE FROM tasks WHERE id=$tid";
                 if (mysqli_query($conn, $delete)) {
@@ -246,6 +285,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
     }
+}
+
+// Ambil daftar staff untuk dropdown assignment
+$staff_query = "SELECT id, name, role FROM users ORDER BY name";
+$staff_result = mysqli_query($conn, $staff_query);
+$staff_list = [];
+while ($staff = mysqli_fetch_assoc($staff_result)) {
+    $staff_list[] = $staff;
 }
 ?>
 
@@ -514,6 +561,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 14px;
         }
 
+        .format-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .format-Video { background: #e3f2fd; color: #11cdef; }
+        .format-Image { background: #f0e6ff; color: #8965e0; }
+        .format-Motion { background: #ffe6f0; color: #ff6b9d; }
+
         .priority-urgent { background: #fde8e8; color: #f5365c; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
         .priority-high { background: #fff3e0; color: #fb6340; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
         .priority-medium { background: #e3f2fd; color: #11cdef; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
@@ -565,9 +623,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .modal-content {
             background: white;
             border-radius: 12px;
-            width: 450px;
+            width: 500px;
             max-width: 90%;
             padding: 25px;
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         .modal-header {
@@ -601,12 +661,49 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-weight: 500;
         }
 
-        .form-group input {
+        .form-group input, .form-group select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
+        }
+
+        .staff-checkbox-group {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+        }
+
+        .staff-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .staff-checkbox:last-child {
+            border-bottom: none;
+        }
+
+        .staff-checkbox input {
+            width: auto;
+            margin: 0;
+        }
+
+        .staff-checkbox label {
+            margin: 0;
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .staff-role {
+            font-size: 11px;
+            color: #8898aa;
+            margin-left: 5px;
         }
 
         .btn-submit {
@@ -668,6 +765,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             background: #1e3c72;
             color: white;
             border-color: #1e3c72;
+        }
+
+        .assigned-staff {
+            font-size: 12px;
+            color: #525f7f;
+            max-width: 200px;
+        }
+
+        .assigned-staff i {
+            margin-right: 5px;
+            color: #11cdef;
         }
     </style>
 </head>
@@ -750,6 +858,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <th class="checkbox-col"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
                         <th>No</th>
                         <th>Judul</th>
+                        <th>Format</th>
                         <th>Start Date</th>
                         <th>Due Date</th>
                         <th>Priority</th>
@@ -764,7 +873,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <tr>
                                 <td class="checkbox-col"><input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>"></td>
                                 <td><?php echo $no++; ?></td>
-                                <td><a href="detail_task.php?id=<?php echo $task['id']; ?>" style="color: #1e3c72; text-decoration: none; font-weight: bold;"><?php echo htmlspecialchars($task['task_name']); ?></a></td>
+                                <td>
+                                    <a href="detail_task.php?id=<?php echo $task['id']; ?>" style="color: #1e3c72; text-decoration: none; font-weight: bold;">
+                                        <?php echo htmlspecialchars($task['task_name']); ?>
+                                    </a>
+                                    <?php if (!empty($task['assigned_staff'])): ?>
+                                        <div class="assigned-staff">
+                                            <i class="fas fa-users"></i> <?php echo htmlspecialchars($task['assigned_staff']); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php 
+                                    $format_class = '';
+                                    switch(strtolower($task['format'])) {
+                                        case 'video': $format_class = 'format-Video'; break;
+                                        case 'image': $format_class = 'format-Image'; break;
+                                        case 'motion': $format_class = 'format-Motion'; break;
+                                    }
+                                    ?>
+                                    <span class="format-badge <?php echo $format_class; ?>">
+                                        <i class="fas <?php echo $task['format'] == 'Video' ? 'fa-video' : ($task['format'] == 'Image' ? 'fa-image' : 'fa-film'); ?>"></i>
+                                        <?php echo $task['format']; ?>
+                                    </span>
+                                </td>
                                 <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td>
                                 <td>
                                     <?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?>
@@ -812,12 +944,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                             <option value="Done" <?php echo $task['status'] == 'Done' ? 'selected' : ''; ?>>Done</option>
                                         </select>
                                     </form>
+                                    <button onclick="openEditModal(<?php echo $task['id']; ?>)" style="background: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" style="text-align: center; padding: 50px;">
+                            <td colspan="9" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-tasks" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada task. Klik "Tambah Task" untuk membuat task baru.
                             </td>
@@ -859,11 +994,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <h3>Tambah Task Baru</h3>
                 <span class="close-modal" onclick="closeAddModal()">&times;</span>
             </div>
-            <form method="POST" action="">
+            <form method="POST" action="" id="addForm">
                 <input type="hidden" name="action" value="add">
                 <div class="form-group">
                     <label>Judul Task *</label>
                     <input type="text" name="task_name" placeholder="Contoh: Revisi Desain Logo" required>
+                </div>
+                <div class="form-group">
+                    <label>Format *</label>
+                    <select name="format" required>
+                        <option value="Image">📷 Image</option>
+                        <option value="Video">🎬 Video</option>
+                        <option value="Motion">🎨 Motion</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Assignment To (Pilih Staff)</label>
+                    <div class="staff-checkbox-group">
+                        <?php foreach ($staff_list as $staff): ?>
+                        <div class="staff-checkbox">
+                            <input type="checkbox" name="assigned_staff[]" value="<?php echo $staff['id']; ?>" id="staff_add_<?php echo $staff['id']; ?>">
+                            <label for="staff_add_<?php echo $staff['id']; ?>">
+                                <?php echo htmlspecialchars($staff['name']); ?>
+                                <span class="staff-role">(<?php echo htmlspecialchars($staff['role']); ?>)</span>
+                            </label>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Start Date</label>
@@ -891,6 +1048,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="form-group">
                     <label>Judul Task</label>
                     <input type="text" name="task_name" id="edit_task_name" required>
+                </div>
+                <div class="form-group">
+                    <label>Format *</label>
+                    <select name="format" id="edit_format" required>
+                        <option value="Image">📷 Image</option>
+                        <option value="Video">🎬 Video</option>
+                        <option value="Motion">🎨 Motion</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Assignment To (Pilih Staff)</label>
+                    <div class="staff-checkbox-group" id="edit_staff_group">
+                        <?php foreach ($staff_list as $staff): ?>
+                        <div class="staff-checkbox">
+                            <input type="checkbox" name="assigned_staff[]" value="<?php echo $staff['id']; ?>" id="staff_edit_<?php echo $staff['id']; ?>">
+                            <label for="staff_edit_<?php echo $staff['id']; ?>">
+                                <?php echo htmlspecialchars($staff['name']); ?>
+                                <span class="staff-role">(<?php echo htmlspecialchars($staff['role']); ?>)</span>
+                            </label>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Start Date</label>
@@ -939,8 +1118,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 .then(data => {
                     document.getElementById('edit_id').value = data.id;
                     document.getElementById('edit_task_name').value = data.task_name;
+                    document.getElementById('edit_format').value = data.format || 'Image';
                     document.getElementById('edit_start_date').value = data.start_date;
                     document.getElementById('edit_due_date').value = data.due_date;
+                    
+                    // Reset all checkboxes
+                    const checkboxes = document.querySelectorAll('#edit_staff_group input[type="checkbox"]');
+                    checkboxes.forEach(cb => {
+                        cb.checked = false;
+                    });
+                    
+                    // Check assigned staff
+                    if (data.assigned_staff_ids) {
+                        const assignedIds = data.assigned_staff_ids.split(',');
+                        assignedIds.forEach(id => {
+                            const cb = document.querySelector(`#edit_staff_group input[value="${id}"]`);
+                            if (cb) cb.checked = true;
+                        });
+                    }
+                    
                     document.getElementById('editModal').classList.add('show');
                 })
                 .catch(error => {
