@@ -93,24 +93,24 @@ mysqli_query($conn, $status_table);
 // Definisikan status checklist berdasarkan format
 if ($format == 'Video') {
     $status_list = [
-        'konten_brief' => 'Konten Brief (Upload Konten)',
-        'revisi_konten' => 'Revisi Konten Brief',
+        'konten_brief' => 'Konten Brief',
+        'revisi_konten' => 'Revisi Brief',
         'shooting' => 'Shooting Video',
-        'editing' => 'Editing Video (Upload Video Hasil Edit)',
-        'review_1' => 'Review 1 (Konten Brief)',
-        'review_2' => 'Review 2 (Project Koor & Acc Client)',
-        'revisi_design' => 'Revisi Video Editing',
-        'posting' => 'Posting (SEO)'
+        'editing' => 'Editing Video',
+        'review_1' => 'Review Content',
+        'review_2' => 'Review Acc',
+        'revisi_design' => 'Revisi Design',
+        'posting' => 'Posting Author'
     ];
 } else {
     $status_list = [
-        'konten_brief' => 'Konten Brief (Upload Konten)',
-        'revisi_konten' => 'Revisi Konten Brief',
-        'designer' => 'Designer (Upload Design)',
-        'review_1' => 'Review 1 (Konten Brief)',
-        'review_2' => 'Review 2 (Project Koor & Acc Client)',
+        'konten_brief' => 'Konten Brief',
+        'revisi_konten' => 'Revisi Brief',
+        'designer' => 'Designer',
+        'review_1' => 'Review Content',
+        'review_2' => 'Review Acc',
         'revisi_design' => 'Revisi Design',
-        'posting' => 'Posting (SEO)'
+        'posting' => 'Posting Author'
     ];
 }
 
@@ -118,6 +118,38 @@ if ($format == 'Video') {
 foreach ($status_list as $key => $label) {
     $insert_status = "INSERT IGNORE INTO task_status_checklist (task_id, status_key, status_label) VALUES ($task_id, '$key', '$label')";
     mysqli_query($conn, $insert_status);
+}
+
+// Ambil data assignment staff untuk task ini
+$assignment_query = "SELECT u.id, u.name, u.role 
+                     FROM task_assignments ta 
+                     JOIN users u ON ta.user_id = u.id 
+                     WHERE ta.task_id = $task_id";
+$assignment_result = mysqli_query($conn, $assignment_query);
+$assignments = [];
+while ($row = mysqli_fetch_assoc($assignment_result)) {
+    $assignments[] = $row;
+}
+
+// Cari staff berdasarkan role
+$konten_brief_staff = '';
+$designer_staff = '';
+$project_koor_staff = '';
+$director_staff = '';
+
+foreach ($assignments as $staff) {
+    if ($staff['role'] == 'Content Brief') {
+        $konten_brief_staff = $staff['name'];
+    }
+    if ($staff['role'] == 'Designer') {
+        $designer_staff = $staff['name'];
+    }
+    if ($staff['role'] == 'Project Coordinator') {
+        $project_koor_staff = $staff['name'];
+    }
+    if ($staff['role'] == 'Director') {
+        $director_staff = $staff['name'];
+    }
 }
 
 // Proses upload brief
@@ -242,14 +274,17 @@ while ($row = mysqli_fetch_assoc($status_result)) {
 }
 
 function getUserName($conn, $user_id) {
-    if (!$user_id) return 'System';
+    if (!$user_id) return '-';
     $query = "SELECT name FROM users WHERE id = $user_id";
     $result = mysqli_query($conn, $query);
     if ($row = mysqli_fetch_assoc($result)) {
         return $row['name'];
     }
-    return 'Unknown';
+    return '-';
 }
+
+// Ambil nama pembuat task
+$created_by_name = getUserName($conn, $task['created_by']);
 
 // Kumpulkan media items untuk lightbox
 $media_items = [];
@@ -552,76 +587,69 @@ $has_media = count($media_items) > 0;
             right: 20px;
         }
 
-        .status-checklist {
+        /* Task Details Styles */
+        .task-details-list {
             list-style: none;
         }
 
-        .status-item {
-            padding: 15px;
+        .task-details-item {
+            padding: 12px 0;
             border-bottom: 1px solid #eef2f7;
             display: flex;
-            align-items: flex-start;
-            gap: 15px;
+            flex-wrap: wrap;
         }
 
-        .status-item:last-child {
+        .task-details-item:last-child {
             border-bottom: none;
         }
 
-        .status-check {
-            width: 24px;
-            margin-top: 2px;
-        }
-
-        .status-check input {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-
-        .status-content {
-            flex: 1;
-        }
-
-        .status-label {
+        .task-details-label {
+            width: 100px;
             font-weight: 600;
-            margin-bottom: 5px;
-            font-size: 14px;
+            color: #525f7f;
+            font-size: 13px;
         }
 
-        .status-label.checked {
-            text-decoration: line-through;
+        .task-details-value {
+            flex: 1;
+            color: #1e3c72;
+            font-size: 13px;
+        }
+
+        .status-item-detail {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .status-item-detail:last-child {
+            border-bottom: none;
+        }
+
+        .status-name {
+            font-size: 13px;
+            color: #525f7f;
+        }
+
+        .status-assignee {
+            font-size: 12px;
+            color: #1e3c72;
+            font-weight: 500;
+        }
+
+        .status-checked {
             color: #2dce89;
         }
 
-        .status-notes {
-            margin-top: 8px;
+        .status-not-checked {
+            color: #f5365c;
         }
 
-        .status-notes textarea {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 12px;
-            resize: vertical;
-        }
-
-        .status-meta {
+        .status-date {
             font-size: 11px;
             color: #8898aa;
-            margin-top: 5px;
-        }
-
-        .btn-status {
-            background: #11cdef;
-            color: white;
-            border: none;
-            padding: 5px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 11px;
-            margin-top: 5px;
         }
 
         .alert {
@@ -850,7 +878,7 @@ $has_media = count($media_items) > 0;
                             <?php endif; ?>
                         </div>
 
-                        <!-- Edit Mode - Form Upload Media (ALWAYS SHOW WHEN NO MEDIA) -->
+                        <!-- Edit Mode - Form Upload Media -->
                         <div id="editMediaMode" class="edit-mode <?php echo !$has_media ? 'show' : ''; ?>">
                             <form method="POST" enctype="multipart/form-data">
                                 <input type="hidden" name="action" value="upload_media">
@@ -879,45 +907,90 @@ $has_media = count($media_items) > 0;
                 </div>
             </div>
 
-            <!-- Right Column -->
+            <!-- Right Column - Task Details -->
             <div>
                 <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-check-circle"></i> Status Pengerjaan
+                        <i class="fas fa-info-circle"></i> Task Details
                     </div>
                     <div class="card-body">
-                        <ul class="status-checklist">
-                            <?php foreach ($status_list as $key => $label): ?>
-                            <?php $status = $status_data[$key] ?? null; ?>
-                            <li class="status-item">
-                                <div class="status-check">
-                                    <form method="POST" onchange="this.submit()">
-                                        <input type="hidden" name="action" value="update_status">
-                                        <input type="hidden" name="status_key" value="<?php echo $key; ?>">
-                                        <input type="hidden" name="is_checked" value="<?php echo ($status && $status['is_checked']) ? 1 : 0; ?>">
-                                        <input type="checkbox" name="is_checked_temp" value="1" <?php echo ($status && $status['is_checked']) ? 'checked' : ''; ?> onchange="this.form.submit()">
-                                    </form>
-                                </div>
-                                <div class="status-content">
-                                    <div class="status-label <?php echo ($status && $status['is_checked']) ? 'checked' : ''; ?>">
-                                        <?php echo $label; ?>
-                                    </div>
-                                    <form method="POST" class="status-notes">
-                                        <input type="hidden" name="action" value="update_status">
-                                        <input type="hidden" name="status_key" value="<?php echo $key; ?>">
-                                        <input type="hidden" name="is_checked" value="<?php echo ($status && $status['is_checked']) ? 1 : 0; ?>">
-                                        <textarea name="notes" placeholder="Tambahkan catatan..."><?php echo htmlspecialchars($status['notes'] ?? ''); ?></textarea>
-                                        <button type="submit" class="btn-status"><i class="fas fa-save"></i> Simpan Catatan</button>
-                                    </form>
-                                    <?php if ($status && $status['checked_at'] && $status['is_checked']): ?>
-                                    <div class="status-meta">
-                                        <i class="fas fa-check-circle"></i> Dicentang oleh: <?php echo getUserName($conn, $status['checked_by']); ?> pada <?php echo date('d M Y H:i', strtotime($status['checked_at'])); ?>
-                                    </div>
-                                    <?php endif; ?>
-                                </div>
+                        <ul class="task-details-list">
+                            <li class="task-details-item">
+                                <span class="task-details-label">Added By</span>
+                                <span class="task-details-value"><?php echo htmlspecialchars($created_by_name); ?> on <?php echo date('d M Y - H:i', strtotime($task['created_at'])); ?></span>
                             </li>
-                            <?php endforeach; ?>
+                            <li class="task-details-item">
+                                <span class="task-details-label">Project</span>
+                                <span class="task-details-value"><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></span>
+                            </li>
+                            <li class="task-details-item">
+                                <span class="task-details-label">Divisi</span>
+                                <span class="task-details-value"><?php echo htmlspecialchars($user_role ?: '-'); ?></span>
+                            </li>
                         </ul>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-tasks"></i> Status
+                    </div>
+                    <div class="card-body">
+                        <?php 
+                        $status_order = ['konten_brief', 'revisi_konten', 'designer', 'review_1', 'review_2', 'revisi_design', 'posting'];
+                        if ($format == 'Video') {
+                            $status_order = ['konten_brief', 'revisi_konten', 'shooting', 'editing', 'review_1', 'review_2', 'revisi_design', 'posting'];
+                        }
+                        ?>
+                        <?php foreach ($status_order as $key): ?>
+                        <?php if (isset($status_list[$key])): ?>
+                        <?php $status = $status_data[$key] ?? null; ?>
+                        <?php 
+                            // Tentukan assignee berdasarkan role
+                            $assignee = '';
+                            if ($key == 'konten_brief' || $key == 'revisi_konten' || $key == 'review_1') {
+                                $assignee = $konten_brief_staff;
+                            } elseif ($key == 'designer' || $key == 'shooting' || $key == 'editing' || $key == 'revisi_design') {
+                                $assignee = $designer_staff;
+                            } elseif ($key == 'review_2') {
+                                $assignee = $project_koor_staff;
+                            } elseif ($key == 'posting') {
+                                $assignee = $director_staff;
+                            }
+                        ?>
+                        <div class="status-item-detail">
+                            <div>
+                                <div class="status-name"><?php echo $status_list[$key]; ?></div>
+                                <div class="status-assignee"><?php echo htmlspecialchars($assignee ?: '-'); ?></div>
+                            </div>
+                            <div style="text-align: right;">
+                                <?php if ($status && $status['is_checked']): ?>
+                                    <div class="status-checked">
+                                        <i class="fas fa-check-circle"></i> Done
+                                    </div>
+                                    <div class="status-date">
+                                        <?php echo date('d/m/Y', strtotime($status['checked_at'])); ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="status-not-checked">
+                                        <i class="fas fa-clock"></i> Pending
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-calendar-alt"></i> Due On
+                    </div>
+                    <div class="card-body">
+                        <div style="font-size: 14px; color: #1e3c72;">
+                            <i class="fas fa-calendar"></i> <?php echo date('D, d M', strtotime($task['due_date'])); ?>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1053,8 +1126,6 @@ $has_media = count($media_items) > 0;
             toggleEditBrief();
         });
         <?php endif; ?>
-
-        // Jika tidak ada media, form upload sudah ditampilkan melalui class 'show'
     </script>
 </body>
 </html>
