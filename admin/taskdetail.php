@@ -857,7 +857,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
 
         <?php if ($project && $project_id > 0): ?>
         <div class="task-table">
-            <tr>
+            <table>
                 <thead>
                     <tr>
                         <?php if ($can_manage): ?>
@@ -967,7 +967,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                         <tr>
                             <td colspan="<?php echo $can_manage ? '9' : '8'; ?>" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-tasks" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
-                                Belum ada task.
+                                Belum ada task. Klik "Tambah Task" untuk membuat task baru.
                             </td>
                         </tr>
                     <?php endif; ?>
@@ -995,7 +995,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
         <?php else: ?>
         <div class="alert alert-info" style="text-align: center; padding: 50px;">
             <i class="fas fa-info-circle" style="font-size: 40px; margin-bottom: 10px; display: block;"></i>
-            Silakan pilih project terlebih dahulu.
+            Silakan tambah task baru.
         </div>
         <?php endif; ?>
     </div>
