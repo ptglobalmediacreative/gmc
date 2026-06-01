@@ -43,7 +43,7 @@ $create_table = "CREATE TABLE IF NOT EXISTS tasks (
 )";
 mysqli_query($conn, $create_table);
 
-// Fungsi untuk menghitung priority berdasarkan deadline
+// Fungsi untuk menghitung priority berdasarkan deadline (diperbaiki)
 function calculatePriority($due_date) {
     if (empty($due_date)) {
         return 'Low';
@@ -54,36 +54,78 @@ function calculatePriority($due_date) {
     $interval = $today->diff($deadline);
     $days_left = (int)$interval->format('%r%a');
     
+    // Jika sudah melewati deadline
     if ($days_left < 0) {
         return 'Urgent';
     }
     
-    if ($days_left >= 8) {
-        return 'Low';
-    } elseif ($days_left >= 5 && $days_left <= 7) {
-        return 'Medium';
-    } elseif ($days_left >= 3 && $days_left <= 4) {
-        return 'High';
+    // Hitung priority berdasarkan sisa hari
+    if ($days_left == 0) {
+        return 'Urgent';
     } elseif ($days_left >= 1 && $days_left <= 2) {
         return 'Urgent';
+    } elseif ($days_left >= 3 && $days_left <= 4) {
+        return 'High';
+    } elseif ($days_left >= 5 && $days_left <= 7) {
+        return 'Medium';
+    } elseif ($days_left >= 8) {
+        return 'Low';
     } else {
         return 'Low';
     }
 }
 
-// Update priority semua task berdasarkan deadline
-if ($project_id > 0) {
-    $update_priority_query = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
-    $update_priority_result = mysqli_query($conn, $update_priority_query);
-    while ($task_row = mysqli_fetch_assoc($update_priority_result)) {
-        $new_priority = calculatePriority($task_row['due_date']);
-        $task_id = $task_row['id'];
-        $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id";
-        mysqli_query($conn, $update_priority);
-    }
+// Fungsi untuk mengecek apakah semua status checklist sudah selesai untuk suatu task
+function isAllStatusCompleted($conn, $task_id) {
+    $check_query = "SELECT COUNT(*) as total, 
+                           SUM(CASE WHEN is_checked = 1 THEN 1 ELSE 0 END) as completed
+                    FROM task_status_checklist 
+                    WHERE task_id = $task_id";
+    $check_result = mysqli_query($conn, $check_query);
+    $check_row = mysqli_fetch_assoc($check_result);
     
-    $update_done_priority = "UPDATE tasks SET priority = 'Done' WHERE project_id = $project_id AND status = 'Done'";
-    mysqli_query($conn, $update_done_priority);
+    // Jika total status > 0 dan semua status sudah dicentang
+    if ($check_row['total'] > 0 && $check_row['total'] == $check_row['completed']) {
+        return true;
+    }
+    return false;
+}
+
+// Update priority semua task berdasarkan deadline dan cek status checklist
+if ($project_id > 0) {
+    // Ambil semua task dalam project ini
+    $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
+    $tasks_all_result = mysqli_query($conn, $tasks_query_all);
+    
+    while ($task_row = mysqli_fetch_assoc($tasks_all_result)) {
+        $task_id_loop = $task_row['id'];
+        $due_date = $task_row['due_date'];
+        
+        // Update priority berdasarkan deadline
+        $new_priority = calculatePriority($due_date);
+        
+        // Cek apakah semua status checklist sudah selesai
+        $all_completed = isAllStatusCompleted($conn, $task_id_loop);
+        
+        if ($all_completed) {
+            // Jika semua status sudah selesai, set status task menjadi Done
+            $update_task = "UPDATE tasks SET status = 'Done', priority = 'Done' WHERE id = $task_id_loop";
+            mysqli_query($conn, $update_task);
+        } else {
+            // Update priority saja
+            $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id_loop";
+            mysqli_query($conn, $update_priority);
+            
+            // Jika status task sebelumnya Done tapi checklist belum semua selesai, kembalikan ke In Progress
+            $check_task_status = "SELECT status FROM tasks WHERE id = $task_id_loop";
+            $status_result = mysqli_query($conn, $check_task_status);
+            $status_row = mysqli_fetch_assoc($status_result);
+            if ($status_row['status'] == 'Done') {
+                $update_task_status = "UPDATE tasks SET status = 'In Progress' WHERE id = $task_id_loop";
+                mysqli_query($conn, $update_task_status);
+            }
+        }
+    }
 }
 
 // Pagination
@@ -105,6 +147,8 @@ if ($project_id > 0) {
         $where .= " AND status = '$status_filter'";
     }
     
+    // QUERY DENGAN ORDER BY YANG DIPERBAIKI
+    // Task dengan due date terdekat di atas, yang Done di bawah
     $tasks_query = "SELECT t.*, 
                     GROUP_CONCAT(u.name SEPARATOR ', ') as assigned_staff,
                     GROUP_CONCAT(u.id SEPARATOR ',') as assigned_staff_ids
@@ -114,16 +158,8 @@ if ($project_id > 0) {
                     $where 
                     GROUP BY t.id
                     ORDER BY 
-                    CASE t.priority 
-                        WHEN 'Urgent' THEN 1 
-                        WHEN 'High' THEN 2 
-                        WHEN 'Medium' THEN 3 
-                        WHEN 'Low' THEN 4 
-                        WHEN 'Done' THEN 5
-                        ELSE 6 
-                    END ASC, 
-                    t.due_date ASC 
-                    LIMIT $offset, $limit";
+                        CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END ASC,
+                        t.due_date ASC";
     $tasks_result = mysqli_query($conn, $tasks_query);
     
     $total_query = "SELECT COUNT(DISTINCT t.id) as total FROM tasks t $where";
@@ -877,7 +913,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                 </thead>
                 <tbody>
                     <?php if (mysqli_num_rows($tasks_result) > 0): ?>
-                        <?php $no = $offset + 1; ?>
+                        <?php $no = 1; ?>
                         <?php while ($task = mysqli_fetch_assoc($tasks_result)): ?>
                             <tr>
                                 <?php if ($can_manage): ?>
