@@ -43,7 +43,7 @@ $create_table = "CREATE TABLE IF NOT EXISTS tasks (
 )";
 mysqli_query($conn, $create_table);
 
-// Fungsi untuk menghitung priority berdasarkan deadline (diperbaiki)
+// Fungsi untuk menghitung priority berdasarkan deadline
 function calculatePriority($due_date) {
     if (empty($due_date)) {
         return 'Low';
@@ -54,12 +54,10 @@ function calculatePriority($due_date) {
     $interval = $today->diff($deadline);
     $days_left = (int)$interval->format('%r%a');
     
-    // Jika sudah melewati deadline
     if ($days_left < 0) {
         return 'Urgent';
     }
     
-    // Hitung priority berdasarkan sisa hari
     if ($days_left == 0) {
         return 'Urgent';
     } elseif ($days_left >= 1 && $days_left <= 2) {
@@ -84,48 +82,49 @@ function isAllStatusCompleted($conn, $task_id) {
     $check_result = mysqli_query($conn, $check_query);
     $check_row = mysqli_fetch_assoc($check_result);
     
-    // Jika total status > 0 dan semua status sudah dicentang
     if ($check_row['total'] > 0 && $check_row['total'] == $check_row['completed']) {
         return true;
     }
     return false;
 }
 
-// Update priority semua task berdasarkan deadline dan cek status checklist
-if ($project_id > 0) {
-    // Ambil semua task dalam project ini
-    $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
+// Update priority untuk task yang due_date-nya berubah atau task baru
+// Hanya dijalankan saat diperlukan, tidak setiap load halaman
+if ($project_id > 0 && isset($_GET['update_priority']) && $_GET['update_priority'] == 1) {
+    $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id AND status != 'Done'";
     $tasks_all_result = mysqli_query($conn, $tasks_query_all);
     
     while ($task_row = mysqli_fetch_assoc($tasks_all_result)) {
         $task_id_loop = $task_row['id'];
         $due_date = $task_row['due_date'];
-        
-        // Update priority berdasarkan deadline
         $new_priority = calculatePriority($due_date);
-        
-        // Cek apakah semua status checklist sudah selesai
-        $all_completed = isAllStatusCompleted($conn, $task_id_loop);
-        
-        if ($all_completed) {
-            // Jika semua status sudah selesai, set status task menjadi Done
-            $update_task = "UPDATE tasks SET status = 'Done', priority = 'Done' WHERE id = $task_id_loop";
-            mysqli_query($conn, $update_task);
-        } else {
-            // Update priority saja
-            $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id_loop";
-            mysqli_query($conn, $update_priority);
-            
-            // Jika status task sebelumnya Done tapi checklist belum semua selesai, kembalikan ke In Progress
-            $check_task_status = "SELECT status FROM tasks WHERE id = $task_id_loop";
-            $status_result = mysqli_query($conn, $check_task_status);
-            $status_row = mysqli_fetch_assoc($status_result);
-            if ($status_row['status'] == 'Done') {
-                $update_task_status = "UPDATE tasks SET status = 'In Progress' WHERE id = $task_id_loop";
-                mysqli_query($conn, $update_task_status);
-            }
-        }
+        $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id_loop";
+        mysqli_query($conn, $update_priority);
     }
+}
+
+// Proses update status via AJAX
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_action']) && $_POST['ajax_action'] == 'update_task_status') {
+    header('Content-Type: application/json');
+    $id = (int)$_POST['task_id'];
+    $status = mysqli_real_escape_string($conn, $_POST['status']);
+    
+    $update = "UPDATE tasks SET status='$status' WHERE id=$id";
+    if (mysqli_query($conn, $update)) {
+        if ($status == 'Done') {
+            mysqli_query($conn, "UPDATE tasks SET priority='Done' WHERE id=$id");
+        } else {
+            $task_data = mysqli_query($conn, "SELECT due_date FROM tasks WHERE id=$id");
+            $task_row = mysqli_fetch_assoc($task_data);
+            $due_date = $task_row['due_date'];
+            $new_priority = calculatePriority($due_date);
+            mysqli_query($conn, "UPDATE tasks SET priority='$new_priority' WHERE id=$id");
+        }
+        echo json_encode(['success' => true, 'message' => 'Status berhasil diupdate']);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Gagal mengupdate status']);
+    }
+    exit();
 }
 
 // Pagination
@@ -147,8 +146,6 @@ if ($project_id > 0) {
         $where .= " AND status = '$status_filter'";
     }
     
-    // QUERY DENGAN ORDER BY YANG DIPERBAIKI
-    // Task dengan due date terdekat di atas, yang Done di bawah
     $tasks_query = "SELECT t.*, 
                     GROUP_CONCAT(u.name SEPARATOR ', ') as assigned_staff,
                     GROUP_CONCAT(u.id SEPARATOR ',') as assigned_staff_ids
@@ -186,8 +183,8 @@ if ($project_id > 0) {
     $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['total'] ?? 0);
 }
 
-// Proses CRUD (hanya untuk yang punya akses manage)
-if ($can_manage && $_SERVER['REQUEST_METHOD'] == 'POST') {
+// Proses CRUD lainnya (add, edit, delete, bulk_delete) - tetap pakai POST biasa
+if ($can_manage && $_SERVER['REQUEST_METHOD'] == 'POST' && !isset($_POST['ajax_action'])) {
     if (isset($_POST['action'])) {
         $action = $_POST['action'];
         
@@ -217,7 +214,6 @@ if ($can_manage && $_SERVER['REQUEST_METHOD'] == 'POST') {
             if (mysqli_query($conn, $insert)) {
                 $task_id_baru = mysqli_insert_id($conn);
                 
-                // Insert assignments
                 foreach ($assigned_staff as $staff_id) {
                     $staff_id = (int)$staff_id;
                     $insert_assign = "INSERT INTO task_assignments (task_id, user_id) VALUES ('$task_id_baru', '$staff_id')";
@@ -242,10 +238,8 @@ if ($can_manage && $_SERVER['REQUEST_METHOD'] == 'POST') {
             $update = "UPDATE tasks SET task_name='$task_name', format='$format', start_date='$start_date', due_date='$due_date' WHERE id=$id";
             
             if (mysqli_query($conn, $update)) {
-                // Delete old assignments
                 mysqli_query($conn, "DELETE FROM task_assignments WHERE task_id=$id");
                 
-                // Insert new assignments
                 foreach ($assigned_staff as $staff_id) {
                     $staff_id = (int)$staff_id;
                     $insert_assign = "INSERT INTO task_assignments (task_id, user_id) VALUES ('$id', '$staff_id')";
@@ -267,9 +261,7 @@ if ($can_manage && $_SERVER['REQUEST_METHOD'] == 'POST') {
             $task_row = mysqli_fetch_assoc($task_data);
             $current_project_id = $task_row['project_id'];
             
-            // Delete assignments first
             mysqli_query($conn, "DELETE FROM task_assignments WHERE task_id=$id");
-            
             $delete = "DELETE FROM tasks WHERE id=$id";
             if (mysqli_query($conn, $delete)) {
                 $success = "Task berhasil dihapus!";
@@ -290,9 +282,7 @@ if ($can_manage && $_SERVER['REQUEST_METHOD'] == 'POST') {
                 $task_row = mysqli_fetch_assoc($task_data);
                 $current_project_id = $task_row['project_id'];
                 
-                // Delete assignments first
                 mysqli_query($conn, "DELETE FROM task_assignments WHERE task_id=$tid");
-                
                 $delete = "DELETE FROM tasks WHERE id=$tid";
                 if (mysqli_query($conn, $delete)) {
                     $success_count++;
@@ -300,28 +290,6 @@ if ($can_manage && $_SERVER['REQUEST_METHOD'] == 'POST') {
             }
             $success = "$success_count task berhasil dihapus!";
             echo "<script>window.location.href='taskdetail.php?project_id=$current_project_id';</script>";
-        }
-        
-        elseif ($action == 'update_status') {
-            $id = (int)$_POST['id'];
-            $status = mysqli_real_escape_string($conn, $_POST['status']);
-            
-            $update = "UPDATE tasks SET status='$status' WHERE id=$id";
-            if (mysqli_query($conn, $update)) {
-                if ($status == 'Done') {
-                    mysqli_query($conn, "UPDATE tasks SET priority='Done' WHERE id=$id");
-                } else {
-                    $task_data = mysqli_query($conn, "SELECT due_date FROM tasks WHERE id=$id");
-                    $task_row = mysqli_fetch_assoc($task_data);
-                    $due_date = $task_row['due_date'];
-                    $new_priority = calculatePriority($due_date);
-                    mysqli_query($conn, "UPDATE tasks SET priority='$new_priority' WHERE id=$id");
-                }
-                $success = "Status task berhasil diupdate!";
-                echo "<script>window.location.reload();</script>";
-            } else {
-                $error = "Gagal mengupdate status task: " . mysqli_error($conn);
-            }
         }
     }
 }
@@ -343,6 +311,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
     <title>Task Detail - <?php echo $project ? htmlspecialchars($project['kode']) : 'Task Manager'; ?> - Global Media Creative</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        /* SEMUA STYLE SAMA SEPERTI SEBELUMNYA - Tidak diubah */
         * {
             margin: 0;
             padding: 0;
@@ -816,6 +785,23 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
             margin-right: 5px;
             color: #11cdef;
         }
+
+        /* Loading spinner untuk AJAX */
+        .status-loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #1e3c72;
+            border-radius: 50%;
+            animation: spin 0.5s linear infinite;
+            margin-left: 5px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -984,14 +970,11 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                 </td>
                                 <?php if ($can_manage): ?>
                                 <td>
-                                    <form method="POST" style="display: inline;">
-                                        <input type="hidden" name="action" value="update_status">
-                                        <input type="hidden" name="id" value="<?php echo $task['id']; ?>">
-                                        <select name="status" onchange="this.form.submit()" class="status-select">
-                                            <option value="In Progress" <?php echo $task['status'] == 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
-                                            <option value="Done" <?php echo $task['status'] == 'Done' ? 'selected' : ''; ?>>Done</option>
-                                        </select>
-                                    </form>
+                                    <select class="status-select" data-task-id="<?php echo $task['id']; ?>" data-current-status="<?php echo $task['status']; ?>">
+                                        <option value="In Progress" <?php echo $task['status'] == 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
+                                        <option value="Done" <?php echo $task['status'] == 'Done' ? 'selected' : ''; ?>>Done</option>
+                                    </select>
+                                    <div class="status-loading" style="display: none;"></div>
                                     <button onclick="openEditModal(<?php echo $task['id']; ?>)" style="background: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
@@ -1173,13 +1156,11 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                     document.getElementById('edit_start_date').value = data.start_date;
                     document.getElementById('edit_due_date').value = data.due_date;
                     
-                    // Reset all checkboxes
                     const checkboxes = document.querySelectorAll('#edit_staff_group input[type="checkbox"]');
                     checkboxes.forEach(cb => {
                         cb.checked = false;
                     });
                     
-                    // Check assigned staff
                     if (data.assigned_staff_ids) {
                         const assignedIds = data.assigned_staff_ids.split(',');
                         assignedIds.forEach(id => {
@@ -1228,6 +1209,63 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
         function closeBulkDeleteModal() {
             document.getElementById('bulkDeleteModal').classList.remove('show');
         }
+        
+        // AJAX untuk update status - TIDAK RELOAD HALAMAN
+        document.querySelectorAll('.status-select').forEach(select => {
+            select.addEventListener('change', function() {
+                const taskId = this.dataset.taskId;
+                const newStatus = this.value;
+                const currentStatus = this.dataset.currentStatus;
+                
+                if (newStatus === currentStatus) return;
+                
+                const parentTd = this.parentElement;
+                const loadingSpinner = parentTd.querySelector('.status-loading');
+                const statusBadge = parentTd.previousElementSibling.querySelector('.status-badge');
+                
+                // Tampilkan loading
+                if (loadingSpinner) loadingSpinner.style.display = 'inline-block';
+                this.disabled = true;
+                
+                fetch('', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `ajax_action=update_task_status&task_id=${taskId}&status=${encodeURIComponent(newStatus)}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update status badge
+                        if (statusBadge) {
+                            const oldStatusClass = statusBadge.className;
+                            const newStatusClass = oldStatusClass.replace(/status-\w+/, `status-${newStatus.replace(/ /g, '')}`);
+                            statusBadge.className = newStatusClass;
+                            statusBadge.innerHTML = `<i class="fas ${newStatus === 'Done' ? 'fa-check-circle' : 'fa-spinner fa-pulse'}"></i> ${newStatus}`;
+                        }
+                        this.dataset.currentStatus = newStatus;
+                        
+                        // Refresh halaman untuk update urutan dan statistik
+                        setTimeout(() => {
+                            location.reload();
+                        }, 300);
+                    } else {
+                        alert('Gagal mengupdate status: ' + data.message);
+                        this.value = currentStatus;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Terjadi kesalahan saat mengupdate status');
+                    this.value = currentStatus;
+                })
+                .finally(() => {
+                    if (loadingSpinner) loadingSpinner.style.display = 'none';
+                    this.disabled = false;
+                });
+            });
+        });
         
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
