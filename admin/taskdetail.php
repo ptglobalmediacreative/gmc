@@ -874,7 +874,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                 <td class="checkbox-col"><input type="checkbox" class="task-checkbox" value="<?php echo $task['id']; ?>"></td>
                                 <td><?php echo $no++; ?></td>
                                 <td>
-                                    <a href="detail_task.php?id=<?php echo $task['id']; ?>" style="color: #1e3c72; text-decoration: none; font-weight: bold;">
+                                    <a href="infotask.php?id=<?php echo $task['id']; ?>" style="color: #1e3c72; text-decoration: none; font-weight: bold;">
                                         <?php echo htmlspecialchars($task['task_name']); ?>
                                     </a>
                                     <?php if (!empty($task['assigned_staff'])): ?>
