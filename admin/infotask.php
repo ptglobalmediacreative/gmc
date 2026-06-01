@@ -135,7 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 mysqli_query($conn, $insert_brief);
             }
             $success = "Brief berhasil diupload!";
-            // Refresh halaman untuk menampilkan mode read-only
             echo "<script>window.location.href='infotask.php?id=$task_id';</script>";
             exit();
         }
@@ -144,7 +143,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if ($_POST['action'] == 'upload_media') {
             $media_type = strtolower($format);
             
-            // Buat folder jika belum ada
             if (!file_exists($target_dir)) {
                 mkdir($target_dir, 0777, true);
             }
@@ -157,7 +155,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $new_filename = time() . '_' . uniqid() . '.' . $file_ext;
                     $target_file = $target_dir . $new_filename;
                     
-                    // Validasi file berdasarkan tipe
                     if ($media_type == 'image') {
                         $check = getimagesize($tmp_name);
                         if ($check === false) {
@@ -181,7 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
             if (count($uploaded_files) > 0) {
-                $success = count($uploaded_files) . " file berhasil diupload ke admin/uploads/" . $upload_subdir . "task_" . $task_id . "/";
+                $success = count($uploaded_files) . " file berhasil diupload!";
             } else {
                 $error = "Gagal mengupload file. Pastikan format file sesuai.";
             }
@@ -233,7 +230,6 @@ while ($row = mysqli_fetch_assoc($status_result)) {
     $status_data[$row['status_key']] = $row;
 }
 
-// Fungsi untuk ambil nama user
 function getUserName($conn, $user_id) {
     if (!$user_id) return 'System';
     $query = "SELECT name FROM users WHERE id = $user_id";
@@ -411,6 +407,13 @@ function getUserName($conn, $user_id) {
             border-radius: 8px;
             overflow: hidden;
             position: relative;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .media-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
         .media-item img, .media-item video {
@@ -431,6 +434,97 @@ function getUserName($conn, $user_id) {
         .media-info a {
             color: #f5365c;
             text-decoration: none;
+        }
+
+        .media-info .download-btn {
+            color: #11cdef;
+            margin-right: 10px;
+        }
+
+        /* Lightbox Modal */
+        .lightbox-modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.95);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .lightbox-modal.show {
+            display: flex;
+        }
+
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 80vh;
+            position: relative;
+        }
+
+        .lightbox-image {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .lightbox-video {
+            max-width: 90vw;
+            max-height: 80vh;
+        }
+
+        .close-lightbox {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            z-index: 10000;
+        }
+
+        .close-lightbox:hover {
+            color: #f5365c;
+        }
+
+        .lightbox-caption {
+            color: white;
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            background: rgba(0,0,0,0.5);
+            padding: 15px 10px;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+
+        .lightbox-nav:hover {
+            background: rgba(0,0,0,0.8);
+            color: #f5365c;
+        }
+
+        .nav-prev {
+            left: 20px;
+        }
+
+        .nav-next {
+            right: 20px;
         }
 
         .status-checklist {
@@ -625,7 +719,6 @@ function getUserName($conn, $user_id) {
                         <?php endif; ?>
                     </div>
                     <div class="card-body">
-                        <!-- View Mode - Tampilan Brief yang sudah diupload -->
                         <div id="viewBriefMode" class="view-mode <?php echo $has_brief ? '' : 'hide'; ?>">
                             <?php if ($has_brief): ?>
                             <div class="brief-display">
@@ -651,7 +744,6 @@ function getUserName($conn, $user_id) {
                             <?php endif; ?>
                         </div>
 
-                        <!-- Edit Mode - Form Upload Brief -->
                         <div id="editBriefMode" class="edit-mode">
                             <form method="POST" class="brief-form">
                                 <input type="hidden" name="action" value="upload_brief">
@@ -707,7 +799,6 @@ function getUserName($conn, $user_id) {
 
             <!-- Right Column -->
             <div>
-                <!-- Status Checklist Section -->
                 <div class="card">
                     <div class="card-header">
                         <i class="fas fa-check-circle"></i> Status Pengerjaan
@@ -750,7 +841,7 @@ function getUserName($conn, $user_id) {
             </div>
         </div>
 
-        <!-- Media Gallery Section (Full Width) -->
+        <!-- Media Gallery Section -->
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-photo-video"></i> Gallery Media
@@ -758,27 +849,33 @@ function getUserName($conn, $user_id) {
             <div class="card-body">
                 <?php if (mysqli_num_rows($media_result) > 0): ?>
                 <div class="media-gallery">
-                    <?php while ($media = mysqli_fetch_assoc($media_result)): ?>
-                    <div class="media-item">
+                    <?php 
+                    $media_items = [];
+                    while ($media = mysqli_fetch_assoc($media_result)): 
+                        $media_items[] = $media;
+                    ?>
+                    <div class="media-item" data-media-idx="<?php echo count($media_items) - 1; ?>" onclick="openLightbox(<?php echo count($media_items) - 1; ?>)">
                         <?php if ($media['media_type'] == 'image'): ?>
-                            <img src="<?php echo $media['file_path']; ?>" alt="<?php echo htmlspecialchars($media['original_name']); ?>">
+                            <img src="<?php echo $media['file_path']; ?>" alt="<?php echo htmlspecialchars($media['original_name']); ?>" loading="lazy">
                         <?php else: ?>
-                            <video controls>
+                            <video>
                                 <source src="<?php echo $media['file_path']; ?>" type="video/mp4">
-                                Browser tidak support video tag.
                             </video>
+                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.6); border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-play" style="color: white; font-size: 20px;"></i>
+                            </div>
                         <?php endif; ?>
                         <div class="media-info">
                             <span title="<?php echo htmlspecialchars($media['original_name']); ?>">
                                 <?php echo substr($media['original_name'], 0, 20); ?>
                             </span>
                             <div>
-                                <a href="<?php echo $media['file_path']; ?>" download="<?php echo $media['original_name']; ?>">
+                                <a href="<?php echo $media['file_path']; ?>" download="<?php echo $media['original_name']; ?>" class="download-btn" onclick="event.stopPropagation()">
                                     <i class="fas fa-download"></i>
                                 </a>
-                                <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus file ini?')">
+                                <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus file ini?')" onclick="event.stopPropagation()">
                                     <input type="hidden" name="action" value="delete_media">
-                                    <input type="hidden" name="media_id" value="<?php echo $media['id']; ?>">
+                                    <input type="hidden"name="media_id" value="<?php echo $media['id']; ?>">
                                     <button type="submit" style="background: none; border: none; color: #f5365c; cursor: pointer;">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
@@ -798,7 +895,107 @@ function getUserName($conn, $user_id) {
         </div>
     </div>
 
+    <!-- Lightbox Modal -->
+    <div id="lightboxModal" class="lightbox-modal" onclick="closeLightbox()">
+        <span class="close-lightbox" onclick="closeLightbox()">&times;</span>
+        <div class="lightbox-nav nav-prev" onclick="prevMedia(event)">&#10094;</div>
+        <div class="lightbox-nav nav-next" onclick="nextMedia(event)">&#10095;</div>
+        <div class="lightbox-content" onclick="event.stopPropagation()">
+            <img id="lightboxImage" class="lightbox-image" style="display: none;">
+            <video id="lightboxVideo" class="lightbox-video" controls style="display: none;">
+                <source id="lightboxVideoSource" type="video/mp4">
+                Browser tidak support video tag.
+            </video>
+        </div>
+        <div id="lightboxCaption" class="lightbox-caption"></div>
+    </div>
+
     <script>
+        <?php
+        // Generate array media untuk lightbox
+        $media_js_array = [];
+        foreach ($media_items as $idx => $media) {
+            $media_js_array[] = [
+                'type' => $media['media_type'],
+                'path' => $media['file_path'],
+                'name' => $media['original_name']
+            ];
+        }
+        ?>
+        var mediaList = <?php echo json_encode($media_js_array); ?>;
+        var currentMediaIndex = 0;
+
+        function openLightbox(index) {
+            currentMediaIndex = index;
+            showMedia(currentMediaIndex);
+            document.getElementById('lightboxModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightboxModal').classList.remove('show');
+            document.body.style.overflow = '';
+            // Stop video saat menutup
+            var video = document.getElementById('lightboxVideo');
+            if (video) {
+                video.pause();
+            }
+        }
+
+        function showMedia(index) {
+            var media = mediaList[index];
+            var imageEl = document.getElementById('lightboxImage');
+            var videoEl = document.getElementById('lightboxVideo');
+            var videoSource = document.getElementById('lightboxVideoSource');
+            var caption = document.getElementById('lightboxCaption');
+            
+            if (media.type === 'image') {
+                imageEl.style.display = 'block';
+                videoEl.style.display = 'none';
+                videoEl.pause();
+                imageEl.src = media.path;
+                caption.innerHTML = '<i class="fas fa-image"></i> ' + media.name;
+            } else {
+                imageEl.style.display = 'none';
+                videoEl.style.display = 'block';
+                videoSource.src = media.path;
+                videoEl.load();
+                caption.innerHTML = '<i class="fas fa-video"></i> ' + media.name;
+            }
+        }
+
+        function prevMedia(event) {
+            event.stopPropagation();
+            currentMediaIndex--;
+            if (currentMediaIndex < 0) {
+                currentMediaIndex = mediaList.length - 1;
+            }
+            showMedia(currentMediaIndex);
+        }
+
+        function nextMedia(event) {
+            event.stopPropagation();
+            currentMediaIndex++;
+            if (currentMediaIndex >= mediaList.length) {
+                currentMediaIndex = 0;
+            }
+            showMedia(currentMediaIndex);
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            var modal = document.getElementById('lightboxModal');
+            if (modal.classList.contains('show')) {
+                if (e.key === 'ArrowLeft') {
+                    prevMedia(e);
+                } else if (e.key === 'ArrowRight') {
+                    nextMedia(e);
+                } else if (e.key === 'Escape') {
+                    closeLightbox();
+                }
+            }
+        });
+
         function toggleEditBrief() {
             const viewMode = document.getElementById('viewBriefMode');
             const editMode = document.getElementById('editBriefMode');
@@ -812,7 +1009,6 @@ function getUserName($conn, $user_id) {
             }
         }
         
-        // Jika belum ada brief, langsung tampilkan form edit
         <?php if (!$has_brief): ?>
         document.addEventListener('DOMContentLoaded', function() {
             toggleEditBrief();
