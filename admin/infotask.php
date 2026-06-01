@@ -138,6 +138,8 @@ $konten_brief_staff = '';
 $konten_brief_staff_id = 0;
 $designer_staff = '';
 $designer_staff_id = 0;
+$video_graphic_staff = '';
+$video_graphic_staff_id = 0;
 $project_koor_staff = '';
 $project_koor_staff_id = 0;
 $director_staff = '';
@@ -152,6 +154,10 @@ foreach ($assignments as $staff) {
         $designer_staff = $staff['name'];
         $designer_staff_id = $staff['id'];
     }
+    if ($staff['role'] == 'Video Graphic') {
+        $video_graphic_staff = $staff['name'];
+        $video_graphic_staff_id = $staff['id'];
+    }
     if ($staff['role'] == 'Project Coordinator') {
         $project_koor_staff = $staff['name'];
         $project_koor_staff_id = $staff['id'];
@@ -160,6 +166,16 @@ foreach ($assignments as $staff) {
         $director_staff = $staff['name'];
         $director_staff_id = $staff['id'];
     }
+}
+
+// Untuk media, tentukan staff yang bertanggung jawab berdasarkan format
+$media_responsible_staff = '';
+if ($format == 'Video') {
+    $media_responsible_staff = $video_graphic_staff;
+    $media_responsible_role = 'Video Graphic';
+} else {
+    $media_responsible_staff = $designer_staff;
+    $media_responsible_role = 'Designer';
 }
 
 // Mapping assignee untuk setiap status (berdasarkan nama)
@@ -175,12 +191,24 @@ $status_assignee_map = [
     'posting' => $director_staff
 ];
 
+// Cek akses untuk Konten Brief
+$can_edit_brief = false;
+if (($user_role == 'Content Brief' && $user_name == $konten_brief_staff) || $user_role == 'Director' || $user_role == 'Administrator') {
+    $can_edit_brief = true;
+}
+
+// Cek akses untuk Media
+$can_edit_media = false;
+if (($user_role == $media_responsible_role && $user_name == $media_responsible_staff) || $user_role == 'Director' || $user_role == 'Administrator') {
+    $can_edit_media = true;
+}
+
 // Proses upload brief
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         
         // Upload Brief
-        if ($_POST['action'] == 'upload_brief') {
+        if ($_POST['action'] == 'upload_brief' && $can_edit_brief) {
             $google_slide_link = mysqli_real_escape_string($conn, $_POST['google_slide_link']);
             $caption = mysqli_real_escape_string($conn, $_POST['caption']);
             
@@ -200,7 +228,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         // Upload Media
-        if ($_POST['action'] == 'upload_media') {
+        if ($_POST['action'] == 'upload_media' && $can_edit_media) {
             $media_type = strtolower($format);
             
             if (!file_exists($target_dir)) {
@@ -248,18 +276,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         // Delete Media
         if ($_POST['action'] == 'delete_media') {
-            $media_id = (int)$_POST['media_id'];
-            $get_media = "SELECT file_path FROM task_media WHERE id = $media_id";
-            $media_result = mysqli_query($conn, $get_media);
-            if ($media_row = mysqli_fetch_assoc($media_result)) {
-                if (file_exists($media_row['file_path'])) {
-                    unlink($media_row['file_path']);
+            // Hanya yang punya akses edit media yang bisa hapus
+            if ($can_edit_media) {
+                $media_id = (int)$_POST['media_id'];
+                $get_media = "SELECT file_path FROM task_media WHERE id = $media_id";
+                $media_result = mysqli_query($conn, $get_media);
+                if ($media_row = mysqli_fetch_assoc($media_result)) {
+                    if (file_exists($media_row['file_path'])) {
+                        unlink($media_row['file_path']);
+                    }
+                    mysqli_query($conn, "DELETE FROM task_media WHERE id = $media_id");
+                    $success = "File berhasil dihapus!";
                 }
-                mysqli_query($conn, "DELETE FROM task_media WHERE id = $media_id");
-                $success = "File berhasil dihapus!";
-                echo "<script>window.location.href='infotask.php?id=$task_id';</script>";
-                exit();
+            } else {
+                $error = "Anda tidak memiliki akses untuk menghapus media!";
             }
+            echo "<script>window.location.href='infotask.php?id=$task_id';</script>";
+            exit();
         }
         
         // Update Status Checklist
@@ -344,7 +377,6 @@ $has_media = count($media_items) > 0;
     <title><?php echo htmlspecialchars($task['task_name']); ?> - Detail Task</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* semua style sama seperti sebelumnya */
         * {
             margin: 0;
             padding: 0;
@@ -906,13 +938,14 @@ $has_media = count($media_items) > 0;
                 <div class="card">
                     <div class="card-header">
                         <span><i class="fas fa-file-alt"></i> Konten Brief</span>
-                        <?php if ($has_brief): ?>
+                        <?php if ($has_brief && $can_edit_brief): ?>
                         <button class="btn-edit" onclick="toggleEditBrief()">
                             <i class="fas fa-edit"></i> Edit Brief
                         </button>
                         <?php endif; ?>
                     </div>
                     <div class="card-body">
+                        <!-- View Mode - Tampilan Brief yang sudah diupload -->
                         <div id="viewBriefMode" class="view-mode <?php echo $has_brief ? '' : 'hide'; ?>">
                             <?php if ($has_brief): ?>
                             <div class="brief-display">
@@ -933,12 +966,18 @@ $has_media = count($media_items) > 0;
                             <?php else: ?>
                             <div class="empty-state">
                                 <i class="fas fa-file-alt"></i>
-                                Belum ada brief. Klik tombol Edit untuk membuat brief.
+                                <?php if ($can_edit_brief): ?>
+                                    Belum ada brief. Isi brief di bawah ini.
+                                <?php else: ?>
+                                    Belum ada brief.
+                                <?php endif; ?>
                             </div>
                             <?php endif; ?>
                         </div>
 
-                        <div id="editBriefMode" class="edit-mode">
+                        <!-- Edit Mode - Form Upload Brief (tampil jika belum ada brief ATAU ketika edit) -->
+                        <div id="editBriefMode" class="edit-mode <?php echo (!$has_brief && $can_edit_brief) ? 'show' : ''; ?>">
+                            <?php if ($can_edit_brief): ?>
                             <form method="POST" class="brief-form">
                                 <input type="hidden" name="action" value="upload_brief">
                                 <div class="form-group">
@@ -956,6 +995,12 @@ $has_media = count($media_items) > 0;
                                     <?php endif; ?>
                                 </div>
                             </form>
+                            <?php else: ?>
+                            <div class="empty-state">
+                                <i class="fas fa-lock"></i>
+                                Anda tidak memiliki akses untuk mengedit brief.
+                            </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -964,13 +1009,14 @@ $has_media = count($media_items) > 0;
                 <div class="card">
                     <div class="card-header">
                         <span><i class="fas fa-images"></i> Gallery Media</span>
-                        <?php if ($has_media): ?>
+                        <?php if ($has_media && $can_edit_media): ?>
                         <button class="btn-edit" onclick="toggleEditMedia()">
                             <i class="fas fa-edit"></i> Edit Media
                         </button>
                         <?php endif; ?>
                     </div>
                     <div class="card-body">
+                        <!-- View Mode - Tampilan Media yang sudah diupload -->
                         <div id="viewMediaMode" class="view-mode <?php echo $has_media ? '' : 'hide'; ?>">
                             <?php if ($has_media): ?>
                             <div class="media-gallery">
@@ -991,6 +1037,7 @@ $has_media = count($media_items) > 0;
                                             <?php echo strlen($media['original_name']) > 20 ? substr($media['original_name'], 0, 18) . '...' : $media['original_name']; ?>
                                         </span>
                                         <div>
+                                            <?php if ($can_edit_media): ?>
                                             <a href="<?php echo $media['file_path']; ?>" download="<?php echo $media['original_name']; ?>" class="download-btn" onclick="event.stopPropagation()">
                                                 <i class="fas fa-download"></i>
                                             </a>
@@ -1001,6 +1048,11 @@ $has_media = count($media_items) > 0;
                                                     <i class="fas fa-trash-alt"></i>
                                                 </button>
                                             </form>
+                                            <?php else: ?>
+                                            <a href="<?php echo $media['file_path']; ?>" download="<?php echo $media['original_name']; ?>" class="download-btn" onclick="event.stopPropagation()">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -1009,12 +1061,18 @@ $has_media = count($media_items) > 0;
                             <?php else: ?>
                             <div class="empty-state">
                                 <i class="fas fa-images"></i>
-                                Belum ada media. Upload media di bawah ini.
+                                <?php if ($can_edit_media): ?>
+                                    Belum ada media. Upload media di bawah ini.
+                                <?php else: ?>
+                                    Belum ada media.
+                                <?php endif; ?>
                             </div>
                             <?php endif; ?>
                         </div>
 
-                        <div id="editMediaMode" class="edit-mode <?php echo !$has_media ? 'show' : ''; ?>">
+                        <!-- Edit Mode - Form Upload Media (tampil jika belum ada media ATAU ketika edit) -->
+                        <div id="editMediaMode" class="edit-mode <?php echo (!$has_media && $can_edit_media) ? 'show' : ''; ?>">
+                            <?php if ($can_edit_media): ?>
                             <form method="POST" enctype="multipart/form-data">
                                 <input type="hidden" name="action" value="upload_media">
                                 <div class="form-group">
@@ -1037,6 +1095,12 @@ $has_media = count($media_items) > 0;
                                     <?php endif; ?>
                                 </div>
                             </form>
+                            <?php else: ?>
+                            <div class="empty-state">
+                                <i class="fas fa-lock"></i>
+                                Anda tidak memiliki akses untuk upload media.
+                            </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -1081,15 +1145,12 @@ $has_media = count($media_items) > 0;
                         <?php if (isset($status_list[$key])): ?>
                         <?php $status = $status_data[$key] ?? null; ?>
                         <?php 
-                            // Ambil assignee berdasarkan mapping nama
                             $assignee = $status_assignee_map[$key] ?? '';
                             
-                            // Cek apakah user yang login berhak mengubah status ini (berdasarkan nama assignee)
                             $can_check = false;
                             if (!empty($assignee) && $assignee == $user_name) {
                                 $can_check = true;
                             }
-                            // Director atau Administrator bisa centang semua
                             if ($user_role == 'Director' || $user_role == 'Administrator') {
                                 $can_check = true;
                             }
@@ -1264,12 +1325,6 @@ $has_media = count($media_items) > 0;
                 editMode.classList.add('show');
             }
         }
-        
-        <?php if (!$has_brief): ?>
-        document.addEventListener('DOMContentLoaded', function() {
-            toggleEditBrief();
-        });
-        <?php endif; ?>
     </script>
 </body>
 </html>
