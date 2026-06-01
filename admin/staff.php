@@ -13,6 +13,7 @@ if (!isset($_SESSION['user_id'])) {
 // Ambil data user yang login
 $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['role']; // Simpan role user yang login
+$user_name = $_SESSION['name'];
 
 $query_user = "SELECT * FROM users WHERE id = '$user_id'";
 $result_user = mysqli_query($conn, $query_user);
@@ -26,28 +27,40 @@ $offset = ($page - 1) * $limit;
 // Search
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 
-// Query untuk mengambil data staff
+// Query untuk mengambil data staff berdasarkan role
 $where = "";
-if (!empty($search)) {
-    $where = " WHERE name LIKE '%$search%' OR email LIKE '%$search%' OR phone LIKE '%$search%' OR role LIKE '%$search%'";
+if ($user_role == 'Director') {
+    // Director bisa melihat semua staff
+    if (!empty($search)) {
+        $where = " WHERE name LIKE '%$search%' OR email LIKE '%$search%' OR phone LIKE '%$search%' OR role LIKE '%$search%'";
+    }
+    $query = "SELECT * FROM users $where ORDER BY join_date DESC LIMIT $offset, $limit";
+    $total_query = "SELECT COUNT(*) as total FROM users $where";
+} else {
+    // Role lain hanya bisa melihat data diri sendiri
+    $where = " WHERE id = $user_id";
+    if (!empty($search)) {
+        $where .= " AND (name LIKE '%$search%' OR email LIKE '%$search%' OR phone LIKE '%$search%' OR role LIKE '%$search%')";
+    }
+    $query = "SELECT * FROM users $where ORDER BY join_date DESC LIMIT $offset, $limit";
+    $total_query = "SELECT COUNT(*) as total FROM users $where";
 }
 
-$query = "SELECT * FROM users $where ORDER BY join_date DESC LIMIT $offset, $limit";
 $result = mysqli_query($conn, $query);
 
 // Hitung total data untuk pagination
-$total_query = "SELECT COUNT(*) as total FROM users $where";
 $total_result = mysqli_query($conn, $total_query);
 $total_row = mysqli_fetch_assoc($total_result);
 $total_data = $total_row['total'];
 $total_pages = ceil($total_data / $limit);
 
-// Proses tambah/edit/hapus staff (hanya Director yang bisa)
-if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
+// Proses CRUD
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
         $action = $_POST['action'];
         
-        if ($action == 'add') {
+        // Tambah Staff (Hanya Director)
+        if ($action == 'add' && $user_role == 'Director') {
             $name = mysqli_real_escape_string($conn, $_POST['name']);
             $email = mysqli_real_escape_string($conn, $_POST['email']);
             $phone = mysqli_real_escape_string($conn, $_POST['phone']);
@@ -65,28 +78,60 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
         
+        // Edit Staff
         elseif ($action == 'edit') {
             $id = (int)$_POST['id'];
-            $name = mysqli_real_escape_string($conn, $_POST['name']);
-            $email = mysqli_real_escape_string($conn, $_POST['email']);
-            $phone = mysqli_real_escape_string($conn, $_POST['phone']);
-            $role = mysqli_real_escape_string($conn, $_POST['role']);
             
-            $update = "UPDATE users SET name='$name', email='$email', phone='$phone', role='$role' WHERE id=$id";
-            if (!empty($_POST['password'])) {
-                $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-                $update = "UPDATE users SET name='$name', email='$email', phone='$phone', password='$password', role='$role' WHERE id=$id";
+            // Cek apakah user berhak mengedit data ini
+            $can_edit = false;
+            if ($user_role == 'Director') {
+                $can_edit = true; // Director bisa edit semua
+            } elseif ($id == $user_id) {
+                $can_edit = true; // User bisa edit data sendiri
             }
             
-            if (mysqli_query($conn, $update)) {
-                $success = "Staff berhasil diupdate!";
-                echo "<script>window.location.href='staff.php';</script>";
+            if ($can_edit) {
+                if ($user_role == 'Director') {
+                    // Director bisa edit semua field
+                    $name = mysqli_real_escape_string($conn, $_POST['name']);
+                    $email = mysqli_real_escape_string($conn, $_POST['email']);
+                    $phone = mysqli_real_escape_string($conn, $_POST['phone']);
+                    $role = mysqli_real_escape_string($conn, $_POST['role']);
+                    
+                    $update = "UPDATE users SET name='$name', email='$email', phone='$phone', role='$role' WHERE id=$id";
+                    if (!empty($_POST['password'])) {
+                        $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                        $update = "UPDATE users SET name='$name', email='$email', phone='$phone', password='$password', role='$role' WHERE id=$id";
+                    }
+                } else {
+                    // Role lain hanya bisa edit password
+                    if (!empty($_POST['password'])) {
+                        $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                        $update = "UPDATE users SET password='$password' WHERE id=$id";
+                    } else {
+                        $error = "Password harus diisi!";
+                        echo "<script>window.location.href='staff.php';</script>";
+                        exit();
+                    }
+                }
+                
+                if (mysqli_query($conn, $update)) {
+                    $success = "Data berhasil diupdate!";
+                    // Jika user mengubah password sendiri, update session? (opsional)
+                    if ($id == $user_id && !empty($_POST['password'])) {
+                        // Optional: update session password info jika perlu
+                    }
+                    echo "<script>window.location.href='staff.php';</script>";
+                } else {
+                    $error = "Gagal mengupdate data: " . mysqli_error($conn);
+                }
             } else {
-                $error = "Gagal mengupdate staff: " . mysqli_error($conn);
+                $error = "Anda tidak memiliki akses untuk mengedit data ini!";
             }
         }
         
-        elseif ($action == 'delete') {
+        // Hapus Staff (Hanya Director)
+        elseif ($action == 'delete' && $user_role == 'Director') {
             $id = (int)$_POST['id'];
             // Cek jangan sampai menghapus diri sendiri
             if ($id == $_SESSION['user_id']) {
@@ -468,6 +513,15 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             color: white;
             border-color: #1e3c72;
         }
+
+        .info-note {
+            background: #e3f2fd;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #11cdef;
+        }
     </style>
 </head>
 <body>
@@ -488,6 +542,12 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         <?php endif; ?>
         <?php if (isset($error)): ?>
             <div class="alert alert-error"><?php echo $error; ?></div>
+        <?php endif; ?>
+
+        <?php if ($user_role != 'Director'): ?>
+        <div class="info-note">
+            <i class="fas fa-info-circle"></i> Anda hanya dapat melihat dan mengedit data diri sendiri. Untuk mengubah data selain password, hubungi Director.
+        </div>
         <?php endif; ?>
 
         <div class="staff-header">
@@ -528,7 +588,11 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                         <?php while ($row = mysqli_fetch_assoc($result)): ?>
                             <tr>
                                 <td><?php echo $no++; ?></td>
-                                <td><strong><?php echo htmlspecialchars($row['name']); ?></strong></td>
+                                <td><strong><?php echo htmlspecialchars($row['name']); ?></strong> 
+                                    <?php if ($row['id'] == $user_id): ?>
+                                        <span style="font-size: 10px; background: #e3f5ec; color: #2dce89; padding: 2px 6px; border-radius: 10px; margin-left: 5px;">(Anda)</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?php echo htmlspecialchars($row['email']); ?></td>
                                 <td><?php echo htmlspecialchars($row['phone']); ?></td>
                                 <td>
@@ -542,8 +606,16 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                                         <button class="btn-edit" onclick="openEditModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['name']); ?>', '<?php echo addslashes($row['email']); ?>', '<?php echo addslashes($row['phone']); ?>', '<?php echo $row['role']; ?>')">
                                             <i class="fas fa-edit"></i>
                                         </button>
+                                        <?php if ($row['id'] != $user_id): ?>
                                         <button class="btn-delete" onclick="openDeleteModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['name']); ?>')">
                                             <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                        <?php endif; ?>
+                                    </td>
+                                <?php elseif ($row['id'] == $user_id): ?>
+                                    <td class="action-buttons">
+                                        <button class="btn-edit" onclick="openEditSelfModal(<?php echo $row['id']; ?>, '<?php echo addslashes($row['name']); ?>', '<?php echo addslashes($row['email']); ?>', '<?php echo addslashes($row['phone']); ?>', '<?php echo $row['role']; ?>')">
+                                            <i class="fas fa-edit"></i> Ganti Password
                                         </button>
                                     </td>
                                 <?php endif; ?>
@@ -554,7 +626,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
                             <td colspan="<?php echo ($user_role == 'Director') ? '7' : '6'; ?>" style="text-align: center; padding: 50px;">
                                 <i class="fas fa-users" style="font-size: 40px; color: #ddd; margin-bottom: 10px; display: block;"></i>
                                 Belum ada data staff
-                            </td>
+                             </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -623,7 +695,7 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </div>
 
-    <!-- Modal Edit Staff (Hanya untuk Director) -->
+    <!-- Modal Edit Staff (Hanya untuk Director - Full Edit) -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -684,6 +756,43 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             </form>
         </div>
     </div>
+    <?php endif; ?>
+
+    <!-- Modal Edit Diri Sendiri (Hanya untuk Ganti Password) - Tampil untuk semua role selain Director -->
+    <div id="editSelfModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Ganti Password</h3>
+                <span class="close-modal" onclick="closeEditSelfModal()">&times;</span>
+            </div>
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="edit">
+                <input type="hidden" name="id" id="edit_self_id">
+                <div class="form-group">
+                    <label>Nama Lengkap</label>
+                    <input type="text" id="edit_self_name" disabled style="background: #f5f6fa;">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="edit_self_email" disabled style="background: #f5f6fa;">
+                </div>
+                <div class="form-group">
+                    <label>No. Telepon</label>
+                    <input type="text" id="edit_self_phone" disabled style="background: #f5f6fa;">
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <input type="text" id="edit_self_role" disabled style="background: #f5f6fa;">
+                </div>
+                <div class="form-group">
+                    <label>Password Baru *</label>
+                    <input type="password" name="password" required>
+                    <small style="color: #8898aa;">Minimal 6 karakter</small>
+                </div>
+                <button type="submit" class="btn-submit">Update Password</button>
+            </form>
+        </div>
+    </div>
 
     <script>
         function openAddModal() {
@@ -707,6 +816,19 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             document.getElementById('editModal').classList.remove('show');
         }
         
+        function openEditSelfModal(id, name, email, phone, role) {
+            document.getElementById('edit_self_id').value = id;
+            document.getElementById('edit_self_name').value = name;
+            document.getElementById('edit_self_email').value = email;
+            document.getElementById('edit_self_phone').value = phone;
+            document.getElementById('edit_self_role').value = role;
+            document.getElementById('editSelfModal').classList.add('show');
+        }
+        
+        function closeEditSelfModal() {
+            document.getElementById('editSelfModal').classList.remove('show');
+        }
+        
         function openDeleteModal(id, name) {
             document.getElementById('delete_id').value = id;
             document.getElementById('delete_name').innerHTML = name;
@@ -723,6 +845,5 @@ if ($user_role == 'Director' && $_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
     </script>
-    <?php endif; ?>
 </body>
 </html>
