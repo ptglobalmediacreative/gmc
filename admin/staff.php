@@ -545,9 +545,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <?php endif; ?>
 
         <?php if ($user_role != 'Director'): ?>
-        <div class="info-note">
-            <i class="fas fa-info-circle"></i> Anda hanya dapat melihat dan mengedit data diri sendiri. Untuk mengubah data selain password, hubungi Director.
-        </div>
+
         <?php endif; ?>
 
         <div class="staff-header">
