@@ -31,8 +31,8 @@ if (!$task) {
 
 $format = $task['format']; // Video, Image, Motion
 
-// Tentukan folder upload berdasarkan format
-$upload_base_dir = "admin/uploads/";
+// Tentukan folder upload berdasarkan format (tanpa subfolder task_id)
+$upload_base_dir = "uploads/";
 switch(strtolower($format)) {
     case 'video':
         $upload_subdir = "video/";
@@ -41,10 +41,15 @@ switch(strtolower($format)) {
         $upload_subdir = "motion/";
         break;
     default:
-        $upload_subdir = "image/";
+        $upload_subdir = "images/";
         break;
 }
-$target_dir = $upload_base_dir . $upload_subdir . "task_" . $task_id . "/";
+$target_dir = $upload_base_dir . $upload_subdir;
+
+// Buat folder jika belum ada
+if (!file_exists($target_dir)) {
+    mkdir($target_dir, 0777, true);
+}
 
 // Buat tabel jika belum ada
 $brief_table = "CREATE TABLE IF NOT EXISTS task_briefs (
@@ -143,6 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if ($_POST['action'] == 'upload_media') {
             $media_type = strtolower($format);
             
+            // Buat folder jika belum ada
             if (!file_exists($target_dir)) {
                 mkdir($target_dir, 0777, true);
             }
@@ -152,7 +158,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if ($_FILES['media_files']['error'][$key] == 0) {
                     $original_name = basename($_FILES['media_files']['name'][$key]);
                     $file_ext = pathinfo($original_name, PATHINFO_EXTENSION);
-                    $new_filename = time() . '_' . uniqid() . '.' . $file_ext;
+                    // Format nama file: taskid_timestamp_random.extension
+                    $new_filename = $task_id . '_' . time() . '_' . uniqid() . '.' . $file_ext;
                     $target_file = $target_dir . $new_filename;
                     
                     if ($media_type == 'image') {
@@ -178,7 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
             if (count($uploaded_files) > 0) {
-                $success = count($uploaded_files) . " file berhasil diupload!";
+                $success = count($uploaded_files) . " file berhasil diupload ke " . $target_dir;
             } else {
                 $error = "Gagal mengupload file. Pastikan format file sesuai.";
             }
@@ -774,7 +781,7 @@ function getUserName($conn, $user_id) {
                     </div>
                     <div class="card-body">
                         <div class="path-info">
-                            <i class="fas fa-folder"></i> File akan disimpan di: admin/uploads/<?php echo $upload_subdir; ?>task_<?php echo $task_id; ?>/
+                            <i class="fas fa-folder"></i> File akan disimpan di: <?php echo $target_dir; ?>
                         </div>
                         <form method="POST" enctype="multipart/form-data" style="margin-top: 15px;">
                             <input type="hidden" name="action" value="upload_media">
@@ -875,7 +882,7 @@ function getUserName($conn, $user_id) {
                                 </a>
                                 <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus file ini?')" onclick="event.stopPropagation()">
                                     <input type="hidden" name="action" value="delete_media">
-                                    <input type="hidden"name="media_id" value="<?php echo $media['id']; ?>">
+                                    <input type="hidden" name="media_id" value="<?php echo $media['id']; ?>">
                                     <button type="submit" style="background: none; border: none; color: #f5365c; cursor: pointer;">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
@@ -935,7 +942,6 @@ function getUserName($conn, $user_id) {
         function closeLightbox() {
             document.getElementById('lightboxModal').classList.remove('show');
             document.body.style.overflow = '';
-            // Stop video saat menutup
             var video = document.getElementById('lightboxVideo');
             if (video) {
                 video.pause();
@@ -982,7 +988,6 @@ function getUserName($conn, $user_id) {
             showMedia(currentMediaIndex);
         }
 
-        // Keyboard navigation
         document.addEventListener('keydown', function(e) {
             var modal = document.getElementById('lightboxModal');
             if (modal.classList.contains('show')) {
