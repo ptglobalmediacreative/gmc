@@ -1155,9 +1155,6 @@ $has_media = count($media_items) > 0;
                                     <?php else: ?>
                                         <!-- User tidak berhak centang, tampilkan checkbox disabled -->
                                         <input type="checkbox" class="status-checkbox-disabled" disabled>
-                                        <div class="status-date" style="color: #f5365c;">
-                                            <i class="fas fa-lock"></i> Tidak punya akses
-                                        </div>
                                     <?php endif; ?>
                                 <?php endif; ?>
                             </div>
