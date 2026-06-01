@@ -257,6 +257,7 @@ mysqli_data_seek($media_result, 0);
 while ($media = mysqli_fetch_assoc($media_result)) {
     $media_items[] = $media;
 }
+$has_media = count($media_items) > 0;
 ?>
 
 <!DOCTYPE html>
@@ -418,7 +419,6 @@ while ($media = mysqli_fetch_assoc($media_result)) {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             gap: 15px;
-            margin-top: 5px;
         }
 
         .media-item {
@@ -694,12 +694,16 @@ while ($media = mysqli_fetch_assoc($media_result)) {
             display: none;
         }
 
-        .upload-form-simple {
-            margin-top: 0;
+        .empty-state {
+            text-align: center;
+            color: #8898aa;
+            padding: 40px;
         }
 
-        .upload-form-simple .form-group {
-            margin-bottom: 12px;
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 10px;
+            display: block;
         }
     </style>
 </head>
@@ -763,8 +767,8 @@ while ($media = mysqli_fetch_assoc($media_result)) {
                                 <?php endif; ?>
                             </div>
                             <?php else: ?>
-                            <div class="brief-display" style="text-align: center; color: #8898aa; padding: 40px;">
-                                <i class="fas fa-file-alt" style="font-size: 48px; margin-bottom: 10px; display: block;"></i>
+                            <div class="empty-state">
+                                <i class="fas fa-file-alt"></i>
                                 Belum ada brief. Klik tombol Edit untuk membuat brief.
                             </div>
                             <?php endif; ?>
@@ -792,29 +796,86 @@ while ($media = mysqli_fetch_assoc($media_result)) {
                     </div>
                 </div>
 
-                <!-- Upload Media Section -->
+                <!-- Gallery Media Section -->
                 <div class="card">
                     <div class="card-header">
-                        <i class="fas fa-upload"></i> Upload Media 
-                        (<?php echo $format == 'Video' ? 'Video' : ($format == 'Motion' ? 'Motion' : 'Image/Design'); ?>)
+                        <span><i class="fas fa-images"></i> Gallery Media</span>
+                        <?php if ($has_media): ?>
+                        <button class="btn-edit" onclick="toggleEditMedia()">
+                            <i class="fas fa-edit"></i> Edit Media
+                        </button>
+                        <?php endif; ?>
                     </div>
                     <div class="card-body">
-                        <form method="POST" enctype="multipart/form-data" class="upload-form-simple">
-                            <input type="hidden" name="action" value="upload_media">
-                            <div class="form-group">
-                                <input type="file" name="media_files[]" accept="<?php echo $format == 'Video' ? 'video/*' : 'image/*'; ?>" multiple required>
-                                <small style="color: #8898aa;">
-                                    <?php if ($format == 'Video'): ?>
-                                        MP4, WebM, AVI, MOV
-                                    <?php elseif ($format == 'Motion'): ?>
-                                        MP4, GIF, JSON, AEP
+                        <!-- View Mode - Tampilan Media yang sudah diupload -->
+                        <div id="viewMediaMode" class="view-mode <?php echo $has_media ? '' : 'hide'; ?>">
+                            <?php if ($has_media): ?>
+                            <div class="media-gallery">
+                                <?php foreach ($media_items as $idx => $media): ?>
+                                <div class="media-item" onclick="openLightbox(<?php echo $idx; ?>)">
+                                    <?php if ($media['media_type'] == 'image'): ?>
+                                        <img src="<?php echo $media['file_path']; ?>" alt="<?php echo htmlspecialchars($media['original_name']); ?>" loading="lazy">
                                     <?php else: ?>
-                                        JPG, PNG, GIF, WebP
+                                        <video>
+                                            <source src="<?php echo $media['file_path']; ?>" type="video/mp4">
+                                        </video>
+                                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.6); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                            <i class="fas fa-play" style="color: white; font-size: 16px;"></i>
+                                        </div>
                                     <?php endif; ?>
-                                </small>
+                                    <div class="media-info">
+                                        <span title="<?php echo htmlspecialchars($media['original_name']); ?>">
+                                            <?php echo strlen($media['original_name']) > 20 ? substr($media['original_name'], 0, 18) . '...' : $media['original_name']; ?>
+                                        </span>
+                                        <div>
+                                            <a href="<?php echo $media['file_path']; ?>" download="<?php echo $media['original_name']; ?>" class="download-btn" onclick="event.stopPropagation()">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus file ini?')" onclick="event.stopPropagation()">
+                                                <input type="hidden" name="action" value="delete_media">
+                                                <input type="hidden" name="media_id" value="<?php echo $media['id']; ?>">
+                                                <button type="submit" style="background: none; border: none; color: #f5365c; cursor: pointer;">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
                             </div>
-                            <button type="submit" class="btn-primary"><i class="fas fa-cloud-upload-alt"></i> Upload</button>
-                        </form>
+                            <?php else: ?>
+                            <div class="empty-state">
+                                <i class="fas fa-images"></i>
+                                Belum ada media. Klik tombol Edit untuk upload media.
+                            </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Edit Mode - Form Upload Media -->
+                        <div id="editMediaMode" class="edit-mode">
+                            <form method="POST" enctype="multipart/form-data">
+                                <input type="hidden" name="action" value="upload_media">
+                                <div class="form-group">
+                                    <label>Upload Media</label>
+                                    <input type="file" name="media_files[]" accept="<?php echo $format == 'Video' ? 'video/*' : 'image/*'; ?>" multiple required>
+                                    <small style="color: #8898aa;">
+                                        <?php if ($format == 'Video'): ?>
+                                            MP4, WebM, AVI, MOV
+                                        <?php elseif ($format == 'Motion'): ?>
+                                            MP4, GIF, JSON, AEP
+                                        <?php else: ?>
+                                            JPG, PNG, GIF, WebP
+                                        <?php endif; ?>
+                                    </small>
+                                </div>
+                                <div style="display: flex; gap: 10px;">
+                                    <button type="submit" class="btn-primary"><i class="fas fa-cloud-upload-alt"></i> Upload</button>
+                                    <?php if ($has_media): ?>
+                                    <button type="button" class="btn-edit" onclick="toggleEditMedia()" style="background: #6c757d; color: white;">Batal</button>
+                                    <?php endif; ?>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -860,55 +921,6 @@ while ($media = mysqli_fetch_assoc($media_result)) {
                         </ul>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Media Gallery Section -->
-        <div class="card">
-            <div class="card-header">
-                <i class="fas fa-photo-video"></i> Gallery Media
-            </div>
-            <div class="card-body">
-                <?php if (count($media_items) > 0): ?>
-                <div class="media-gallery">
-                    <?php foreach ($media_items as $idx => $media): ?>
-                    <div class="media-item" onclick="openLightbox(<?php echo $idx; ?>)">
-                        <?php if ($media['media_type'] == 'image'): ?>
-                            <img src="<?php echo $media['file_path']; ?>" alt="<?php echo htmlspecialchars($media['original_name']); ?>" loading="lazy">
-                        <?php else: ?>
-                            <video>
-                                <source src="<?php echo $media['file_path']; ?>" type="video/mp4">
-                            </video>
-                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.6); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-play" style="color: white; font-size: 16px;"></i>
-                            </div>
-                        <?php endif; ?>
-                        <div class="media-info">
-                            <span title="<?php echo htmlspecialchars($media['original_name']); ?>">
-                                <?php echo strlen($media['original_name']) > 20 ? substr($media['original_name'], 0, 18) . '...' : $media['original_name']; ?>
-                            </span>
-                            <div>
-                                <a href="<?php echo $media['file_path']; ?>" download="<?php echo $media['original_name']; ?>" class="download-btn" onclick="event.stopPropagation()">
-                                    <i class="fas fa-download"></i>
-                                </a>
-                                <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus file ini?')" onclick="event.stopPropagation()">
-                                    <input type="hidden" name="action" value="delete_media">
-                                    <input type="hidden" name="media_id" value="<?php echo $media['id']; ?>">
-                                    <button type="submit" style="background: none; border: none; color: #f5365c; cursor: pointer;">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-                <?php else: ?>
-                <p style="text-align: center; color: #8898aa; padding: 40px;">
-                    <i class="fas fa-folder-open" style="font-size: 48px; margin-bottom: 10px; display: block;"></i>
-                    Belum ada media yang diupload.
-                </p>
-                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -1023,10 +1035,29 @@ while ($media = mysqli_fetch_assoc($media_result)) {
                 editMode.classList.add('show');
             }
         }
+
+        function toggleEditMedia() {
+            const viewMode = document.getElementById('viewMediaMode');
+            const editMode = document.getElementById('editMediaMode');
+            
+            if (viewMode.classList.contains('hide')) {
+                viewMode.classList.remove('hide');
+                editMode.classList.remove('show');
+            } else {
+                viewMode.classList.add('hide');
+                editMode.classList.add('show');
+            }
+        }
         
         <?php if (!$has_brief): ?>
         document.addEventListener('DOMContentLoaded', function() {
             toggleEditBrief();
+        });
+        <?php endif; ?>
+
+        <?php if (!$has_media): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleEditMedia();
         });
         <?php endif; ?>
     </script>
