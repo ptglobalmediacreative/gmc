@@ -253,7 +253,6 @@ function getUserName($conn, $user_id) {
 
 // Kumpulkan media items untuk lightbox
 $media_items = [];
-mysqli_data_seek($media_result, 0);
 while ($media = mysqli_fetch_assoc($media_result)) {
     $media_items[] = $media;
 }
@@ -846,13 +845,13 @@ $has_media = count($media_items) > 0;
                             <?php else: ?>
                             <div class="empty-state">
                                 <i class="fas fa-images"></i>
-                                Belum ada media. Klik tombol Edit untuk upload media.
+                                Belum ada media. Upload media di bawah ini.
                             </div>
                             <?php endif; ?>
                         </div>
 
-                        <!-- Edit Mode - Form Upload Media -->
-                        <div id="editMediaMode" class="edit-mode">
+                        <!-- Edit Mode - Form Upload Media (ALWAYS SHOW WHEN NO MEDIA) -->
+                        <div id="editMediaMode" class="edit-mode <?php echo !$has_media ? 'show' : ''; ?>">
                             <form method="POST" enctype="multipart/form-data">
                                 <input type="hidden" name="action" value="upload_media">
                                 <div class="form-group">
@@ -1055,11 +1054,7 @@ $has_media = count($media_items) > 0;
         });
         <?php endif; ?>
 
-        <?php if (!$has_media): ?>
-        document.addEventListener('DOMContentLoaded', function() {
-            toggleEditMedia();
-        });
-        <?php endif; ?>
+        // Jika tidak ada media, form upload sudah ditampilkan melalui class 'show'
     </script>
 </body>
 </html>
