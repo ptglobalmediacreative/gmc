@@ -31,7 +31,7 @@ if (!$task) {
 
 $format = $task['format']; // Video, Image, Motion
 
-// Tentukan folder upload berdasarkan format (tanpa subfolder task_id)
+// Tentukan folder upload berdasarkan format
 $upload_base_dir = "uploads/";
 switch(strtolower($format)) {
     case 'video':
@@ -102,7 +102,7 @@ if ($format == 'Video') {
         'revisi_design' => 'Revisi Video Editing',
         'posting' => 'Posting (SEO)'
     ];
-} else { // Image atau Motion
+} else {
     $status_list = [
         'konten_brief' => 'Konten Brief (Upload Konten)',
         'revisi_konten' => 'Revisi Konten Brief',
@@ -148,7 +148,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if ($_POST['action'] == 'upload_media') {
             $media_type = strtolower($format);
             
-            // Buat folder jika belum ada
             if (!file_exists($target_dir)) {
                 mkdir($target_dir, 0777, true);
             }
@@ -158,7 +157,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if ($_FILES['media_files']['error'][$key] == 0) {
                     $original_name = basename($_FILES['media_files']['name'][$key]);
                     $file_ext = pathinfo($original_name, PATHINFO_EXTENSION);
-                    // Format nama file: taskid_timestamp_random.extension
                     $new_filename = $task_id . '_' . time() . '_' . uniqid() . '.' . $file_ext;
                     $target_file = $target_dir . $new_filename;
                     
@@ -185,7 +183,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
             if (count($uploaded_files) > 0) {
-                $success = count($uploaded_files) . " file berhasil diupload ke " . $target_dir;
+                $success = count($uploaded_files) . " file berhasil diupload!";
+                echo "<script>window.location.href='infotask.php?id=$task_id';</script>";
+                exit();
             } else {
                 $error = "Gagal mengupload file. Pastikan format file sesuai.";
             }
@@ -202,6 +202,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
                 mysqli_query($conn, "DELETE FROM task_media WHERE id = $media_id");
                 $success = "File berhasil dihapus!";
+                echo "<script>window.location.href='infotask.php?id=$task_id';</script>";
+                exit();
             }
         }
         
@@ -215,6 +217,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                               WHERE task_id = $task_id AND status_key = '$status_key'";
             mysqli_query($conn, $update_status);
             $success = "Status berhasil diupdate!";
+            echo "<script>window.location.href='infotask.php?id=$task_id';</script>";
+            exit();
         }
     }
 }
@@ -245,6 +249,13 @@ function getUserName($conn, $user_id) {
         return $row['name'];
     }
     return 'Unknown';
+}
+
+// Kumpulkan media items untuk lightbox
+$media_items = [];
+mysqli_data_seek($media_result, 0);
+while ($media = mysqli_fetch_assoc($media_result)) {
+    $media_items[] = $media;
 }
 ?>
 
@@ -405,8 +416,9 @@ function getUserName($conn, $user_id) {
 
         .media-gallery {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             gap: 15px;
+            margin-top: 5px;
         }
 
         .media-item {
@@ -425,27 +437,34 @@ function getUserName($conn, $user_id) {
 
         .media-item img, .media-item video {
             width: 100%;
-            height: 180px;
+            height: 150px;
             object-fit: cover;
         }
 
         .media-info {
-            padding: 10px;
+            padding: 8px;
             background: #f8f9fa;
-            font-size: 11px;
+            font-size: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
+        .media-info span {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .media-info a {
             color: #f5365c;
             text-decoration: none;
+            margin-left: 8px;
         }
 
         .media-info .download-btn {
             color: #11cdef;
-            margin-right: 10px;
         }
 
         /* Lightbox Modal */
@@ -568,6 +587,7 @@ function getUserName($conn, $user_id) {
         .status-label {
             font-weight: 600;
             margin-bottom: 5px;
+            font-size: 14px;
         }
 
         .status-label.checked {
@@ -658,15 +678,6 @@ function getUserName($conn, $user_id) {
             border: 1px solid #eef2f7;
         }
 
-        .path-info {
-            background: #e3f2fd;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            color: #11cdef;
-            margin-top: 10px;
-        }
-
         .edit-mode {
             display: none;
         }
@@ -681,6 +692,14 @@ function getUserName($conn, $user_id) {
 
         .view-mode.hide {
             display: none;
+        }
+
+        .upload-form-simple {
+            margin-top: 0;
+        }
+
+        .upload-form-simple .form-group {
+            margin-bottom: 12px;
         }
     </style>
 </head>
@@ -780,25 +799,21 @@ function getUserName($conn, $user_id) {
                         (<?php echo $format == 'Video' ? 'Video' : ($format == 'Motion' ? 'Motion' : 'Image/Design'); ?>)
                     </div>
                     <div class="card-body">
-                        <div class="path-info">
-                            <i class="fas fa-folder"></i> File akan disimpan di: <?php echo $target_dir; ?>
-                        </div>
-                        <form method="POST" enctype="multipart/form-data" style="margin-top: 15px;">
+                        <form method="POST" enctype="multipart/form-data" class="upload-form-simple">
                             <input type="hidden" name="action" value="upload_media">
                             <div class="form-group">
-                                <label>Pilih File (bisa multiple)</label>
                                 <input type="file" name="media_files[]" accept="<?php echo $format == 'Video' ? 'video/*' : 'image/*'; ?>" multiple required>
                                 <small style="color: #8898aa;">
                                     <?php if ($format == 'Video'): ?>
-                                        Format yang didukung: MP4, WebM, AVI, MOV
+                                        MP4, WebM, AVI, MOV
                                     <?php elseif ($format == 'Motion'): ?>
-                                        Format yang didukung: MP4, GIF, JSON, AEP
+                                        MP4, GIF, JSON, AEP
                                     <?php else: ?>
-                                        Format yang didukung: JPG, PNG, GIF, WebP
+                                        JPG, PNG, GIF, WebP
                                     <?php endif; ?>
                                 </small>
                             </div>
-                            <button type="submit" class="btn-primary"><i class="fas fa-cloud-upload-alt"></i> Upload Media</button>
+                            <button type="submit" class="btn-primary"><i class="fas fa-cloud-upload-alt"></i> Upload</button>
                         </form>
                     </div>
                 </div>
@@ -854,27 +869,23 @@ function getUserName($conn, $user_id) {
                 <i class="fas fa-photo-video"></i> Gallery Media
             </div>
             <div class="card-body">
-                <?php if (mysqli_num_rows($media_result) > 0): ?>
+                <?php if (count($media_items) > 0): ?>
                 <div class="media-gallery">
-                    <?php 
-                    $media_items = [];
-                    while ($media = mysqli_fetch_assoc($media_result)): 
-                        $media_items[] = $media;
-                    ?>
-                    <div class="media-item" data-media-idx="<?php echo count($media_items) - 1; ?>" onclick="openLightbox(<?php echo count($media_items) - 1; ?>)">
+                    <?php foreach ($media_items as $idx => $media): ?>
+                    <div class="media-item" onclick="openLightbox(<?php echo $idx; ?>)">
                         <?php if ($media['media_type'] == 'image'): ?>
                             <img src="<?php echo $media['file_path']; ?>" alt="<?php echo htmlspecialchars($media['original_name']); ?>" loading="lazy">
                         <?php else: ?>
                             <video>
                                 <source src="<?php echo $media['file_path']; ?>" type="video/mp4">
                             </video>
-                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.6); border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-play" style="color: white; font-size: 20px;"></i>
+                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.6); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-play" style="color: white; font-size: 16px;"></i>
                             </div>
                         <?php endif; ?>
                         <div class="media-info">
                             <span title="<?php echo htmlspecialchars($media['original_name']); ?>">
-                                <?php echo substr($media['original_name'], 0, 20); ?>
+                                <?php echo strlen($media['original_name']) > 20 ? substr($media['original_name'], 0, 18) . '...' : $media['original_name']; ?>
                             </span>
                             <div>
                                 <a href="<?php echo $media['file_path']; ?>" download="<?php echo $media['original_name']; ?>" class="download-btn" onclick="event.stopPropagation()">
@@ -890,7 +901,7 @@ function getUserName($conn, $user_id) {
                             </div>
                         </div>
                     </div>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 </div>
                 <?php else: ?>
                 <p style="text-align: center; color: #8898aa; padding: 40px;">
@@ -919,9 +930,8 @@ function getUserName($conn, $user_id) {
 
     <script>
         <?php
-        // Generate array media untuk lightbox
         $media_js_array = [];
-        foreach ($media_items as $idx => $media) {
+        foreach ($media_items as $media) {
             $media_js_array[] = [
                 'type' => $media['media_type'],
                 'path' => $media['file_path'],
@@ -958,7 +968,7 @@ function getUserName($conn, $user_id) {
             if (media.type === 'image') {
                 imageEl.style.display = 'block';
                 videoEl.style.display = 'none';
-                videoEl.pause();
+                if (videoEl) videoEl.pause();
                 imageEl.src = media.path;
                 caption.innerHTML = '<i class="fas fa-image"></i> ' + media.name;
             } else {
@@ -990,7 +1000,7 @@ function getUserName($conn, $user_id) {
 
         document.addEventListener('keydown', function(e) {
             var modal = document.getElementById('lightboxModal');
-            if (modal.classList.contains('show')) {
+            if (modal && modal.classList.contains('show')) {
                 if (e.key === 'ArrowLeft') {
                     prevMedia(e);
                 } else if (e.key === 'ArrowRight') {
