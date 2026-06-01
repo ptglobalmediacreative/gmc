@@ -319,6 +319,7 @@ $has_media = count($media_items) > 0;
             padding: 20px;
         }
 
+        /* Task Header Styles */
         .task-header {
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             color: white;
@@ -327,27 +328,97 @@ $has_media = count($media_items) > 0;
             margin-bottom: 25px;
         }
 
-        .task-header h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
+        .task-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
         }
 
-        .task-header .project-info {
-            opacity: 0.9;
-            font-size: 14px;
+        .task-header-top h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
         }
 
         .btn-back {
-            background: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.15);
             color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
+            padding: 8px 18px;
+            border-radius: 8px;
             text-decoration: none;
             font-size: 13px;
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            margin-top: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-back:hover {
+            background: rgba(255,255,255,0.25);
+            transform: translateX(-3px);
+        }
+
+        .task-header-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            margin-top: 8px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            opacity: 0.9;
+            background: rgba(255,255,255,0.1);
+            padding: 6px 14px;
+            border-radius: 20px;
+        }
+
+        .info-item i {
+            font-size: 13px;
+            width: 16px;
+        }
+
+        .priority-text {
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+
+        .priority-text.priority-urgent {
+            background: #f5365c;
+            color: white;
+        }
+
+        .priority-text.priority-high {
+            background: #fb6340;
+            color: white;
+        }
+
+        .priority-text.priority-medium {
+            background: #ffc107;
+            color: #1e3c72;
+        }
+
+        .priority-text.priority-low {
+            background: #2dce89;
+            color: white;
+        }
+
+        .priority-text.priority-done {
+            background: #11cdef;
+            color: white;
         }
 
         .content-grid {
@@ -658,21 +729,6 @@ $has_media = count($media_items) > 0;
             cursor: pointer;
         }
 
-        .btn-done {
-            background: #2dce89;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 4px 12px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .btn-done:hover {
-            background: #28a745;
-        }
-
         .status-done-label {
             display: flex;
             align-items: center;
@@ -714,7 +770,6 @@ $has_media = count($media_items) > 0;
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 12px;
-            margin-left: 15px;
         }
         .format-Video { background: #e3f2fd; color: #11cdef; }
         .format-Image { background: #f0e6ff; color: #8965e0; }
@@ -775,23 +830,38 @@ $has_media = count($media_items) > 0;
 </head>
 <body>
     <div class="container">
+        <!-- Task Header -->
         <div class="task-header">
-            <h1>
-                <?php echo htmlspecialchars($task['task_name']); ?>
-                <span class="format-badge format-<?php echo $task['format']; ?>">
-                    <i class="fas <?php echo $task['format'] == 'Video' ? 'fa-video' : ($task['format'] == 'Image' ? 'fa-image' : 'fa-film'); ?>"></i>
-                    <?php echo $task['format']; ?>
-                </span>
-            </h1>
-            <div class="project-info">
-                <i class="fas fa-folder"></i> Project: <?php echo htmlspecialchars($task['project_kode']); ?> - <?php echo htmlspecialchars($task['client_name']); ?>
-                <br>
-                <i class="fas fa-calendar"></i> Due Date: <?php echo date('d M Y', strtotime($task['due_date'])); ?>
-                <i class="fas fa-flag" style="margin-left: 15px;"></i> Priority: <?php echo $task['priority']; ?>
+            <div class="task-header-top">
+                <h1>
+                    <?php echo htmlspecialchars($task['task_name']); ?>
+                    <span class="format-badge format-<?php echo $task['format']; ?>">
+                        <i class="fas <?php echo $task['format'] == 'Video' ? 'fa-video' : ($task['format'] == 'Image' ? 'fa-image' : 'fa-film'); ?>"></i>
+                        <?php echo $task['format']; ?>
+                    </span>
+                </h1>
+                <a href="taskdetail.php?project_id=<?php echo $task['project_id']; ?>" class="btn-back">
+                    <i class="fas fa-arrow-left"></i> Kembali ke Task List
+                </a>
             </div>
-            <a href="taskdetail.php?project_id=<?php echo $task['project_id']; ?>" class="btn-back">
-                <i class="fas fa-arrow-left"></i> Kembali ke Task List
-            </a>
+            <div class="task-header-info">
+                <div class="info-item">
+                    <i class="fas fa-folder"></i>
+                    <span>Project: <?php echo htmlspecialchars($task['project_kode']); ?> - <?php echo htmlspecialchars($task['client_name']); ?></span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-calendar"></i>
+                    <span>Due Date: <?php echo date('d M Y', strtotime($task['due_date'])); ?></span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-flag"></i>
+                    <span>Priority: 
+                        <span class="priority-text priority-<?php echo strtolower($task['priority']); ?>">
+                            <?php echo $task['priority']; ?>
+                        </span>
+                    </span>
+                </div>
+            </div>
         </div>
 
         <?php if (isset($success)): ?>
@@ -985,7 +1055,6 @@ $has_media = count($media_items) > 0;
                         <?php if (isset($status_list[$key])): ?>
                         <?php $status = $status_data[$key] ?? null; ?>
                         <?php 
-                            // Tentukan assignee berdasarkan role
                             $assignee = '';
                             if ($key == 'konten_brief' || $key == 'revisi_konten' || $key == 'review_1') {
                                 $assignee = $konten_brief_staff;
@@ -1004,7 +1073,6 @@ $has_media = count($media_items) > 0;
                             </div>
                             <div class="status-right">
                                 <?php if ($status && $status['is_checked'] == 1): ?>
-                                    <!-- Jika sudah centang, tampilkan tombol Done (non-clickable) dan tanggal -->
                                     <div class="status-done-label">
                                         <i class="fas fa-check-circle"></i> Done
                                     </div>
@@ -1012,7 +1080,6 @@ $has_media = count($media_items) > 0;
                                         <?php echo date('d/m/Y', strtotime($status['checked_at'])); ?>
                                     </div>
                                 <?php else: ?>
-                                    <!-- Jika belum centang, tampilkan checkbox -->
                                     <form method="POST" onchange="this.submit()" style="display: inline;">
                                         <input type="hidden" name="action" value="update_status">
                                         <input type="hidden" name="status_key" value="<?php echo $key; ?>">
