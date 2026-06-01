@@ -449,16 +449,6 @@ function getUserName($conn, $user_id) {
             background: #e0a800;
         }
 
-        .btn-danger {
-            background: #f5365c;
-            color: white;
-            padding: 5px 10px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
         .media-gallery {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -598,19 +588,63 @@ function getUserName($conn, $user_id) {
             border-radius: 8px;
         }
 
-        .brief-display p {
-            margin-bottom: 10px;
-            word-break: break-word;
+        .brief-link {
+            margin-bottom: 8px;
+            padding: 6px 0;
+            border-bottom: 1px solid #eef2f7;
         }
 
-        .brief-display a {
-            color: #1e3c72;
+        .brief-link i {
+            margin-right: 8px;
         }
 
-        .brief-display img {
-            max-width: 100%;
+        .brief-caption {
+            margin: 10px 0;
+            background: #ffffff;
             border-radius: 8px;
-            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #eef2f7;
+        }
+
+        .brief-screenshot {
+            margin-top: 12px;
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            max-width: 350px;
+        }
+
+        .screenshot-img {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid #eef2f7;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .delete-screenshot-form {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+        }
+
+        .delete-screenshot-btn {
+            background: rgba(245,54,92,0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .delete-screenshot-btn:hover {
+            background: #f5365c;
+            transform: scale(1.05);
         }
 
         .path-info {
@@ -620,32 +654,6 @@ function getUserName($conn, $user_id) {
             font-size: 12px;
             color: #11cdef;
             margin-top: 10px;
-        }
-
-        .screenshot-preview {
-            margin-top: 10px;
-            max-width: 200px;
-            position: relative;
-        }
-
-        .screenshot-preview img {
-            width: 100%;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-        }
-
-        .delete-screenshot {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: rgba(245,54,92,0.9);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 25px;
-            height: 25px;
-            cursor: pointer;
-            font-size: 12px;
         }
 
         .edit-mode {
@@ -712,31 +720,26 @@ function getUserName($conn, $user_id) {
                             <?php if ($has_brief): ?>
                             <div class="brief-display">
                                 <?php if ($brief['google_slide_link']): ?>
-                                <p>
-                                    <i class="fab fa-google"></i> 
-                                    <strong>Google Slide Link:</strong><br>
-                                    <a href="<?php echo $brief['google_slide_link']; ?>" target="_blank"><?php echo $brief['google_slide_link']; ?></a>
-                                </p>
+                                <div class="brief-link">
+                                    <i class="fab fa-google" style="font-size: 12px; color: #6c757d;"></i>
+                                    <a href="<?php echo $brief['google_slide_link']; ?>" target="_blank" style="font-size: 12px; color: #1e3c72; text-decoration: none; word-break: break-all;"><?php echo $brief['google_slide_link']; ?></a>
+                                </div>
                                 <?php endif; ?>
                                 
                                 <?php if ($brief['caption']): ?>
-                                <p>
-                                    <i class="fas fa-quote-left"></i> 
-                                    <strong>Caption:</strong><br>
-                                    <?php echo nl2br(htmlspecialchars($brief['caption'])); ?>
-                                </p>
+                                <div class="brief-caption">
+                                    <i class="fas fa-quote-left" style="font-size: 11px; color: #6c757d; margin-right: 6px;"></i>
+                                    <span style="font-size: 12px; color: #525f7f; line-height: 1.5;"><?php echo nl2br(htmlspecialchars($brief['caption'])); ?></span>
+                                </div>
                                 <?php endif; ?>
                                 
                                 <?php if ($brief['ss_google_slide']): ?>
-                                <div>
-                                    <strong><i class="fas fa-image"></i> Screenshot Google Slide:</strong>
-                                    <div class="screenshot-preview">
-                                        <img src="<?php echo $brief['ss_google_slide']; ?>" alt="Screenshot Google Slide">
-                                        <form method="POST" onsubmit="return confirm('Hapus screenshot ini?')" style="display: inline;">
-                                            <input type="hidden" name="action" value="delete_screenshot">
-                                            <button type="submit" class="delete-screenshot"><i class="fas fa-times"></i></button>
-                                        </form>
-                                    </div>
+                                <div class="brief-screenshot">
+                                    <img src="<?php echo $brief['ss_google_slide']; ?>" alt="Screenshot" class="screenshot-img">
+                                    <form method="POST" onsubmit="return confirm('Hapus screenshot ini?')" class="delete-screenshot-form">
+                                        <input type="hidden" name="action" value="delete_screenshot">
+                                        <button type="submit" class="delete-screenshot-btn"><i class="fas fa-times"></i></button>
+                                    </form>
                                 </div>
                                 <?php endif; ?>
                             </div>
