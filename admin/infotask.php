@@ -245,10 +245,40 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $is_checked = isset($_POST['is_checked']) ? 1 : 0;
             $notes = mysqli_real_escape_string($conn, $_POST['notes']);
             
-            $update_status = "UPDATE task_status_checklist SET is_checked = $is_checked, checked_by = $user_id, checked_at = NOW(), notes = '$notes' 
-                              WHERE task_id = $task_id AND status_key = '$status_key'";
-            mysqli_query($conn, $update_status);
-            $success = "Status berhasil diupdate!";
+            // Cek apakah user berhak update status ini
+            $status_role_map = [
+                'konten_brief' => 'Content Brief',
+                'revisi_konten' => 'Content Brief',
+                'review_1' => 'Content Brief',
+                'designer' => 'Designer',
+                'shooting' => 'Designer',
+                'editing' => 'Designer',
+                'revisi_design' => 'Designer',
+                'review_2' => 'Project Coordinator',
+                'posting' => 'Director'
+            ];
+            
+            $required_role = $status_role_map[$status_key] ?? '';
+            $user_allowed = false;
+            
+            // Cek apakah user punya role yang sesuai
+            if ($required_role == $user_role) {
+                $user_allowed = true;
+            }
+            
+            // Jika user adalah admin/director, bisa centang semua
+            if ($user_role == 'Director' || $user_role == 'Administrator') {
+                $user_allowed = true;
+            }
+            
+            if ($user_allowed) {
+                $update_status = "UPDATE task_status_checklist SET is_checked = $is_checked, checked_by = $user_id, checked_at = NOW(), notes = '$notes' 
+                                  WHERE task_id = $task_id AND status_key = '$status_key'";
+                mysqli_query($conn, $update_status);
+                $success = "Status berhasil diupdate!";
+            } else {
+                $error = "Anda tidak memiliki akses untuk mengubah status ini!";
+            }
             echo "<script>window.location.href='infotask.php?id=$task_id';</script>";
             exit();
         }
@@ -729,6 +759,13 @@ $has_media = count($media_items) > 0;
             cursor: pointer;
         }
 
+        .status-checkbox-disabled {
+            width: 20px;
+            height: 20px;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
         .status-done-label {
             display: flex;
             align-items: center;
@@ -829,6 +866,7 @@ $has_media = count($media_items) > 0;
     </style>
 </head>
 <body>
+    <?php include "sidebar.php"; ?>
     <div class="container">
         <!-- Task Header -->
         <div class="task-header">
@@ -1050,6 +1088,19 @@ $has_media = count($media_items) > 0;
                         if ($format == 'Video') {
                             $status_order = ['konten_brief', 'revisi_konten', 'shooting', 'editing', 'review_1', 'review_2', 'revisi_design', 'posting'];
                         }
+                        
+                        // Mapping role untuk setiap status
+                        $status_role_map = [
+                            'konten_brief' => 'Content Brief',
+                            'revisi_konten' => 'Content Brief',
+                            'review_1' => 'Content Brief',
+                            'designer' => 'Designer',
+                            'shooting' => 'Designer',
+                            'editing' => 'Designer',
+                            'revisi_design' => 'Designer',
+                            'review_2' => 'Project Coordinator',
+                            'posting' => 'Director'
+                        ];
                         ?>
                         <?php foreach ($status_order as $key): ?>
                         <?php if (isset($status_list[$key])): ?>
@@ -1065,6 +1116,17 @@ $has_media = count($media_items) > 0;
                             } elseif ($key == 'posting') {
                                 $assignee = $director_staff;
                             }
+                            
+                            // Cek apakah user berhak mengubah status ini
+                            $required_role = $status_role_map[$key] ?? '';
+                            $can_check = false;
+                            if ($required_role == $user_role) {
+                                $can_check = true;
+                            }
+                            // Director atau Administrator bisa centang semua
+                            if ($user_role == 'Director' || $user_role == 'Administrator') {
+                                $can_check = true;
+                            }
                         ?>
                         <div class="status-item-detail">
                             <div class="status-left">
@@ -1073,6 +1135,7 @@ $has_media = count($media_items) > 0;
                             </div>
                             <div class="status-right">
                                 <?php if ($status && $status['is_checked'] == 1): ?>
+                                    <!-- Jika sudah centang, tampilkan Done dan tanggal -->
                                     <div class="status-done-label">
                                         <i class="fas fa-check-circle"></i> Done
                                     </div>
@@ -1080,13 +1143,23 @@ $has_media = count($media_items) > 0;
                                         <?php echo date('d/m/Y', strtotime($status['checked_at'])); ?>
                                     </div>
                                 <?php else: ?>
-                                    <form method="POST" onchange="this.submit()" style="display: inline;">
-                                        <input type="hidden" name="action" value="update_status">
-                                        <input type="hidden" name="status_key" value="<?php echo $key; ?>">
-                                        <input type="hidden" name="is_checked" value="1">
-                                        <input type="hidden" name="notes" value="">
-                                        <input type="checkbox" class="status-checkbox" value="1" onchange="this.form.submit()">
-                                    </form>
+                                    <!-- Jika belum centang -->
+                                    <?php if ($can_check): ?>
+                                        <!-- User berhak centang -->
+                                        <form method="POST" onchange="this.submit()" style="display: inline;">
+                                            <input type="hidden" name="action" value="update_status">
+                                            <input type="hidden" name="status_key" value="<?php echo $key; ?>">
+                                            <input type="hidden" name="is_checked" value="1">
+                                            <input type="hidden" name="notes" value="">
+                                            <input type="checkbox" class="status-checkbox" value="1" onchange="this.form.submit()">
+                                        </form>
+                                    <?php else: ?>
+                                        <!-- User tidak berhak centang, tampilkan checkbox disabled -->
+                                        <input type="checkbox" class="status-checkbox-disabled" disabled>
+                                        <div class="status-date" style="color: #f5365c;">
+                                            <i class="fas fa-lock"></i> Tidak punya akses
+                                        </div>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
