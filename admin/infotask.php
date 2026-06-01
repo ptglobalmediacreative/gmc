@@ -99,8 +99,8 @@ if ($format == 'Video') {
         'editing' => 'Editing Video',
         'review_1' => 'Review Content',
         'review_2' => 'Review Acc',
-        'revisi_design' => 'Revisi Design',
-        'posting' => 'Posting Author'
+        'revisi_design' => 'Revisi Video',
+        'posting' => 'Posting Video'
     ];
 } else {
     $status_list = [
@@ -168,6 +168,32 @@ foreach ($assignments as $staff) {
     }
 }
 
+// Mapping assignee untuk setiap status berdasarkan format
+if ($format == 'Video') {
+    // Mapping untuk format Video
+    $status_assignee_map = [
+        'konten_brief' => $konten_brief_staff,      // Content Brief
+        'revisi_konten' => $konten_brief_staff,     // Content Brief
+        'shooting' => $video_graphic_staff,          // Video Graphic
+        'editing' => $video_graphic_staff,           // Video Graphic
+        'review_1' => $konten_brief_staff,           // Content Brief
+        'review_2' => $project_koor_staff,           // Project Coordinator
+        'revisi_design' => $video_graphic_staff,     // Video Graphic
+        'posting' => $director_staff                 // Director
+    ];
+} else {
+    // Mapping untuk format Image/Motion
+    $status_assignee_map = [
+        'konten_brief' => $konten_brief_staff,
+        'revisi_konten' => $konten_brief_staff,
+        'designer' => $designer_staff,
+        'review_1' => $konten_brief_staff,
+        'review_2' => $project_koor_staff,
+        'revisi_design' => $designer_staff,
+        'posting' => $director_staff
+    ];
+}
+
 // Untuk media, tentukan staff yang bertanggung jawab berdasarkan format
 $media_responsible_staff = '';
 if ($format == 'Video') {
@@ -177,19 +203,6 @@ if ($format == 'Video') {
     $media_responsible_staff = $designer_staff;
     $media_responsible_role = 'Designer';
 }
-
-// Mapping assignee untuk setiap status (berdasarkan nama)
-$status_assignee_map = [
-    'konten_brief' => $konten_brief_staff,
-    'revisi_konten' => $konten_brief_staff,
-    'review_1' => $konten_brief_staff,
-    'designer' => $designer_staff,
-    'shooting' => $designer_staff,
-    'editing' => $designer_staff,
-    'revisi_design' => $designer_staff,
-    'review_2' => $project_koor_staff,
-    'posting' => $director_staff
-];
 
 // Cek akses untuk Konten Brief
 $can_edit_brief = false;
@@ -276,7 +289,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         // Delete Media
         if ($_POST['action'] == 'delete_media') {
-            // Hanya yang punya akses edit media yang bisa hapus
             if ($can_edit_media) {
                 $media_id = (int)$_POST['media_id'];
                 $get_media = "SELECT file_path FROM task_media WHERE id = $media_id";
@@ -301,16 +313,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $is_checked = isset($_POST['is_checked']) ? 1 : 0;
             $notes = mysqli_real_escape_string($conn, $_POST['notes']);
             
-            // Cek apakah user berhak update status ini (berdasarkan nama assignee)
             $required_assignee = $status_assignee_map[$status_key] ?? '';
             $user_allowed = false;
             
-            // Cek apakah nama user yang login sama dengan assignee status tersebut
             if ($required_assignee == $user_name) {
                 $user_allowed = true;
             }
             
-            // Jika user adalah Director atau Administrator, bisa centang semua
             if ($user_role == 'Director' || $user_role == 'Administrator') {
                 $user_allowed = true;
             }
@@ -357,7 +366,6 @@ function getUserName($conn, $user_id) {
     return '-';
 }
 
-// Ambil nama pembuat task (tanpa jam)
 $created_by_name = getUserName($conn, $task['created_by']);
 $created_date_only = date('d M Y', strtotime($task['created_at']));
 
@@ -945,7 +953,6 @@ $has_media = count($media_items) > 0;
                         <?php endif; ?>
                     </div>
                     <div class="card-body">
-                        <!-- View Mode - Tampilan Brief yang sudah diupload -->
                         <div id="viewBriefMode" class="view-mode <?php echo $has_brief ? '' : 'hide'; ?>">
                             <?php if ($has_brief): ?>
                             <div class="brief-display">
@@ -975,7 +982,6 @@ $has_media = count($media_items) > 0;
                             <?php endif; ?>
                         </div>
 
-                        <!-- Edit Mode - Form Upload Brief (tampil jika belum ada brief ATAU ketika edit) -->
                         <div id="editBriefMode" class="edit-mode <?php echo (!$has_brief && $can_edit_brief) ? 'show' : ''; ?>">
                             <?php if ($can_edit_brief): ?>
                             <form method="POST" class="brief-form">
@@ -1016,7 +1022,6 @@ $has_media = count($media_items) > 0;
                         <?php endif; ?>
                     </div>
                     <div class="card-body">
-                        <!-- View Mode - Tampilan Media yang sudah diupload -->
                         <div id="viewMediaMode" class="view-mode <?php echo $has_media ? '' : 'hide'; ?>">
                             <?php if ($has_media): ?>
                             <div class="media-gallery">
@@ -1070,7 +1075,6 @@ $has_media = count($media_items) > 0;
                             <?php endif; ?>
                         </div>
 
-                        <!-- Edit Mode - Form Upload Media (tampil jika belum ada media ATAU ketika edit) -->
                         <div id="editMediaMode" class="edit-mode <?php echo (!$has_media && $can_edit_media) ? 'show' : ''; ?>">
                             <?php if ($can_edit_media): ?>
                             <form method="POST" enctype="multipart/form-data">
@@ -1136,9 +1140,10 @@ $has_media = count($media_items) > 0;
                     </div>
                     <div class="card-body">
                         <?php 
-                        $status_order = ['konten_brief', 'revisi_konten', 'designer', 'review_1', 'review_2', 'revisi_design', 'posting'];
                         if ($format == 'Video') {
                             $status_order = ['konten_brief', 'revisi_konten', 'shooting', 'editing', 'review_1', 'review_2', 'revisi_design', 'posting'];
+                        } else {
+                            $status_order = ['konten_brief', 'revisi_konten', 'designer', 'review_1', 'review_2', 'revisi_design', 'posting'];
                         }
                         ?>
                         <?php foreach ($status_order as $key): ?>
