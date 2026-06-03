@@ -56,17 +56,7 @@ $tasks_query = "SELECT t.*,
                 LEFT JOIN users u ON ta.user_id = u.id
                 WHERE ta.user_id = $user_id
                 GROUP BY t.id
-                ORDER BY 
-                    CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END ASC,
-                    CASE t.priority 
-                        WHEN 'Urgent' THEN 1 
-                        WHEN 'High' THEN 2 
-                        WHEN 'Medium' THEN 3 
-                        WHEN 'Low' THEN 4 
-                        WHEN 'Done' THEN 5
-                        ELSE 6 
-                    END ASC,
-                    t.due_date ASC
+                ORDER BY t.due_date ASC
                 LIMIT 10";
 $tasks_result = mysqli_query($conn, $tasks_query);
 
@@ -441,20 +431,40 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
             font-size: 14px;
         }
 
+        tr:hover {
+            background: #f8f9fa;
+            cursor: pointer;
+        }
+
         .task-link {
             color: #1e3c72;
             text-decoration: none;
-            font-weight: 600;
+            font-weight: 500;
         }
 
         .task-link:hover {
             text-decoration: underline;
         }
 
-        .priority-high {
+        .client-name {
+            font-weight: 500;
+            color: #1e3c72;
+        }
+
+        .priority-urgent {
             background: #fde8e8;
             color: #f5365c;
-            padding: 4px 10px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .priority-high {
+            background: #fff3e0;
+            color: #fb6340;
+            padding: 4px 12px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: bold;
@@ -462,9 +472,9 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
         }
 
         .priority-medium {
-            background: #fff3e0;
-            color: #fb6340;
-            padding: 4px 10px;
+            background: #e3f2fd;
+            color: #11cdef;
+            padding: 4px 12px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: bold;
@@ -474,7 +484,7 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
         .priority-low {
             background: #e3f5ec;
             color: #2dce89;
-            padding: 4px 10px;
+            padding: 4px 12px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: bold;
@@ -482,9 +492,9 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
         }
 
         .status-progress {
-            background: #e3f2fd;
-            color: #11cdef;
-            padding: 4px 10px;
+            background: #fff3e0;
+            color: #fb6340;
+            padding: 4px 12px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: bold;
@@ -492,9 +502,9 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
         }
 
         .status-review {
-            background: #fff3e0;
-            color: #fb6340;
-            padding: 4px 10px;
+            background: #e3f2fd;
+            color: #11cdef;
+            padding: 4px 12px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: bold;
@@ -504,7 +514,7 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
         .status-pending {
             background: #fde8e8;
             color: #f5365c;
-            padding: 4px 10px;
+            padding: 4px 12px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: bold;
@@ -514,11 +524,39 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
         .status-planning {
             background: #e3f5ec;
             color: #2dce89;
-            padding: 4px 10px;
+            padding: 4px 12px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: bold;
             display: inline-block;
+        }
+
+        .status-done {
+            background: #e3f5ec;
+            color: #2dce89;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .deadline-normal {
+            color: #525f7f;
+        }
+
+        .deadline-overdue {
+            color: #f5365c;
+            font-weight: 500;
+        }
+
+        .deadline-soon {
+            color: #fb6340;
+            font-weight: 500;
+        }
+
+        .assigned-staff {
+            color: #525f7f;
         }
 
         .empty-task {
@@ -608,7 +646,7 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
             </div>
         </div>
 
-        <!-- TASK SCHEDULE SECTION - TAMPILAN SEDERHANA SEPERTI GAMBAR -->
+        <!-- TASK SCHEDULE SECTION -->
         <div class="task-section">
             <div class="task-table">
                 <table>
@@ -626,9 +664,27 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
                         <?php if (mysqli_num_rows($tasks_result) > 0): ?>
                             <?php while ($task = mysqli_fetch_assoc($tasks_result)): 
                                 $due_date = $task['due_date'];
+                                $today = new DateTime();
+                                $deadline = new DateTime($due_date);
+                                $interval = $today->diff($deadline);
+                                $days_left = (int)$interval->format('%r%a');
+                                
+                                $is_overdue = ($days_left < 0);
+                                $is_soon = ($days_left >= 1 && $days_left <= 2);
+                                
+                                $deadline_class = 'deadline-normal';
+                                $deadline_text = '';
+                                if ($is_overdue) {
+                                    $deadline_class = 'deadline-overdue';
+                                    $deadline_text = ' (Terlewat)';
+                                } elseif ($is_soon) {
+                                    $deadline_class = 'deadline-soon';
+                                    $deadline_text = ' (' . $days_left . ' hari lagi)';
+                                }
+                                
                                 $priority_class = '';
                                 switch(strtolower($task['priority'])) {
-                                    case 'urgent': $priority_class = 'priority-high'; break;
+                                    case 'urgent': $priority_class = 'priority-urgent'; break;
                                     case 'high': $priority_class = 'priority-high'; break;
                                     case 'medium': $priority_class = 'priority-medium'; break;
                                     case 'low': $priority_class = 'priority-low'; break;
@@ -641,28 +697,33 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
                                     case 'review': $status_class = 'status-review'; break;
                                     case 'to do': $status_class = 'status-pending'; break;
                                     case 'planning': $status_class = 'status-planning'; break;
+                                    case 'done': $status_class = 'status-done'; break;
                                     default: $status_class = 'status-planning';
                                 }
                             ?>
-                                <tr>
+                                <tr onclick="window.location.href='infotask.php?id=<?php echo $task['id']; ?>'">
                                     <td>
-                                        <a href="infotask.php?id=<?php echo $task['id']; ?>" class="task-link">
+                                        <a href="infotask.php?id=<?php echo $task['id']; ?>" class="task-link" onclick="event.stopPropagation()">
                                             <?php echo htmlspecialchars($task['task_name']); ?>
                                         </a>
-                                    </td
-                                    <td><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></td
-                                    <td><?php echo date('d M Y', strtotime($due_date)); ?></td
+                                    </td>
+                                    <td class="client-name"><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></td>
+                                    <td class="<?php echo $deadline_class; ?>">
+                                        <?php echo date('d M Y', strtotime($due_date)); ?><?php echo $deadline_text; ?>
+                                    </td>
                                     <td>
                                         <span class="<?php echo $priority_class; ?>">
                                             <?php echo $task['priority']; ?>
                                         </span>
-                                    </td
+                                    </td>
                                     <td>
                                         <span class="<?php echo $status_class; ?>">
                                             <?php echo $task['status']; ?>
                                         </span>
-                                    </td
-                                    <td><?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?></td
+                                    </td>
+                                    <td class="assigned-staff">
+                                        <i class="fas fa-user"></i> <?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?>
+                                    </td>
                                 </tr>
                             <?php endwhile; ?>
                         <?php else: ?>
@@ -670,7 +731,7 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
                                 <td colspan="6" class="empty-task">
                                     <i class="fas fa-tasks"></i>
                                     Anda tidak memiliki task yang diassign.
-                                </td
+                                </td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
