@@ -24,7 +24,6 @@ $offset = ($page - 1) * $limit;
 
 // Filter
 $status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET['status']) : '';
-$format_filter = isset($_GET['format']) ? mysqli_real_escape_string($conn, $_GET['format']) : '';
 $priority_filter = isset($_GET['priority']) ? mysqli_real_escape_string($conn, $_GET['priority']) : '';
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 
@@ -33,22 +32,18 @@ $where = "WHERE 1=1";
 if (!empty($status_filter)) {
     $where .= " AND t.status = '$status_filter'";
 }
-if (!empty($format_filter)) {
-    $where .= " AND t.format = '$format_filter'";
-}
 if (!empty($priority_filter)) {
     $where .= " AND t.priority = '$priority_filter'";
 }
 if (!empty($search)) {
-    $where .= " AND (t.task_name LIKE '%$search%' OR p.kode LIKE '%$search%' OR p.client_name LIKE '%$search%')";
+    $where .= " AND (t.task_name LIKE '%$search%' OR p.client_name LIKE '%$search%' OR p.kode LIKE '%$search%')";
 }
 
 // Query ambil semua task dari semua project
 $tasks_query = "SELECT t.*, 
                 p.kode as project_kode, 
                 p.client_name,
-                GROUP_CONCAT(DISTINCT u.name SEPARATOR ', ') as assigned_staff,
-                GROUP_CONCAT(DISTINCT u.id SEPARATOR ',') as assigned_staff_ids
+                GROUP_CONCAT(DISTINCT u.name SEPARATOR ', ') as assigned_staff
                 FROM tasks t
                 LEFT JOIN projects p ON t.project_id = p.id
                 LEFT JOIN task_assignments ta ON t.id = ta.task_id
@@ -360,29 +355,36 @@ $stats = mysqli_fetch_assoc($stats_result);
             text-decoration: underline;
         }
 
-        .project-badge {
-            font-size: 11px;
-            color: #8898aa;
-            display: block;
-            margin-top: 4px;
+        .client-name {
+            font-weight: 500;
+            color: #1e3c72;
         }
 
-        .format-badge {
+        .deadline-date {
+            font-size: 13px;
+        }
+
+        .deadline-overdue {
+            color: #f5365c;
+            font-weight: 500;
+        }
+
+        .deadline-soon {
+            color: #fb6340;
+        }
+
+        .priority-badge {
             padding: 4px 10px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: bold;
             display: inline-block;
         }
-        .format-Video { background: #e3f2fd; color: #11cdef; }
-        .format-Image { background: #f0e6ff; color: #8965e0; }
-        .format-Motion { background: #ffe6f0; color: #ff6b9d; }
-
-        .priority-urgent { background: #fde8e8; color: #f5365c; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
-        .priority-high { background: #fff3e0; color: #fb6340; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
-        .priority-medium { background: #e3f2fd; color: #11cdef; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
-        .priority-low { background: #e3f5ec; color: #2dce89; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
-        .priority-done { background: #e3f5ec; color: #2dce89; font-weight: bold; padding: 4px 10px; border-radius: 20px; display: inline-block; font-size: 11px; }
+        .priority-urgent { background: #fde8e8; color: #f5365c; }
+        .priority-high { background: #fff3e0; color: #fb6340; }
+        .priority-medium { background: #e3f2fd; color: #11cdef; }
+        .priority-low { background: #e3f5ec; color: #2dce89; }
+        .priority-done { background: #e3f5ec; color: #2dce89; }
 
         .status-badge {
             padding: 4px 10px;
@@ -397,9 +399,13 @@ $stats = mysqli_fetch_assoc($stats_result);
         .status-Done { background: #e3f5ec; color: #2dce89; }
 
         .assigned-staff {
-            font-size: 11px;
-            color: #8898aa;
-            max-width: 200px;
+            font-size: 12px;
+            color: #525f7f;
+        }
+
+        .assigned-staff i {
+            margin-right: 5px;
+            color: #11cdef;
         }
 
         .btn-detail {
@@ -506,12 +512,8 @@ $stats = mysqli_fetch_assoc($stats_result);
                     <option value="">Semua Status</option>
                     <option value="In Progress" <?php echo $status_filter == 'In Progress' ? 'selected' : ''; ?>>In Progress</option>
                     <option value="Done" <?php echo $status_filter == 'Done' ? 'selected' : ''; ?>>Done</option>
-                </select>
-                <select id="formatFilter" onchange="applyFilters()">
-                    <option value="">Semua Format</option>
-                    <option value="Image" <?php echo $format_filter == 'Image' ? 'selected' : ''; ?>>Image</option>
-                    <option value="Video" <?php echo $format_filter == 'Video' ? 'selected' : ''; ?>>Video</option>
-                    <option value="Motion" <?php echo $format_filter == 'Motion' ? 'selected' : ''; ?>>Motion</option>
+                    <option value="To Do" <?php echo $status_filter == 'To Do' ? 'selected' : ''; ?>>To Do</option>
+                    <option value="Review" <?php echo $status_filter == 'Review' ? 'selected' : ''; ?>>Review</option>
                 </select>
                 <select id="priorityFilter" onchange="applyFilters()">
                     <option value="">Semua Priority</option>
@@ -523,7 +525,7 @@ $stats = mysqli_fetch_assoc($stats_result);
                 <button onclick="resetFilters()" class="btn-reset">Reset Filter</button>
             </div>
             <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Cari task/project..." value="<?php echo htmlspecialchars($search); ?>">
+                <input type="text" id="searchInput" placeholder="Cari task/client..." value="<?php echo htmlspecialchars($search); ?>">
                 <button onclick="applyFilters()"><i class="fas fa-search"></i> Cari</button>
             </div>
         </div>
@@ -533,11 +535,9 @@ $stats = mysqli_fetch_assoc($stats_result);
             <table>
                 <thead>
                     <tr>
-                        <th>No</th>
-                        <th>Task Name</th>
-                        <th>Project</th>
-                        <th>Format</th>
-                        <th>Due Date</th>
+                        <th>Task</th>
+                        <th>Client</th>
+                        <th>Deadline</th>
                         <th>Priority</th>
                         <th>Status</th>
                         <th>Assigned To</th>
@@ -546,39 +546,37 @@ $stats = mysqli_fetch_assoc($stats_result);
                 </thead>
                 <tbody>
                     <?php if (mysqli_num_rows($tasks_result) > 0): ?>
-                        <?php $no = $offset + 1; ?>
-                        <?php while ($task = mysqli_fetch_assoc($tasks_result)): ?>
+                        <?php while ($task = mysqli_fetch_assoc($tasks_result)): 
+                            $due_date = $task['due_date'];
+                            $today = new DateTime();
+                            $deadline = new DateTime($due_date);
+                            $days_left = $today->diff($deadline)->days;
+                            $is_overdue = ($due_date && strtotime($due_date) < time() && $task['status'] != 'Done');
+                            $is_soon = ($days_left <= 3 && $days_left > 0 && $task['status'] != 'Done');
+                        ?>
                             <tr>
-                                <td><?php echo $no++; ?></td>
                                 <td>
                                     <a href="infotask.php?id=<?php echo $task['id']; ?>" class="task-link">
                                         <?php echo htmlspecialchars($task['task_name']); ?>
                                     </a>
-                                </td
+                                </td>
                                 <td>
-                                    <?php echo htmlspecialchars($task['project_kode']); ?>
-                                    <div class="project-badge"><?php echo htmlspecialchars($task['client_name']); ?></div>
-                                </td
+                                    <span class="client-name"><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></span>
+                                </td>
                                 <td>
-                                    <?php 
-                                    $format_class = '';
-                                    switch(strtolower($task['format'])) {
-                                        case 'video': $format_class = 'format-Video'; break;
-                                        case 'image': $format_class = 'format-Image'; break;
-                                        case 'motion': $format_class = 'format-Motion'; break;
-                                    }
-                                    ?>
-                                    <span class="format-badge <?php echo $format_class; ?>">
-                                        <i class="fas <?php echo $task['format'] == 'Video' ? 'fa-video' : ($task['format'] == 'Image' ? 'fa-image' : 'fa-film'); ?>"></i>
-                                        <?php echo $task['format']; ?>
-                                    </span>
-                                </td
-                                <td>
-                                    <?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?>
-                                    <?php if ($task['due_date'] && strtotime($task['due_date']) < time() && $task['status'] != 'Done'): ?>
-                                        <br><small style="color: #f5365c;">(Terlewat)</small>
+                                    <?php if ($due_date): ?>
+                                        <span class="deadline-date <?php echo $is_overdue ? 'deadline-overdue' : ($is_soon ? 'deadline-soon' : ''); ?>">
+                                            <?php echo date('d M Y', strtotime($due_date)); ?>
+                                            <?php if ($is_overdue): ?>
+                                                <br><small>(Terlewat)</small>
+                                            <?php elseif ($is_soon): ?>
+                                                <br><small>(<?php echo $days_left; ?> hari lagi)</small>
+                                            <?php endif; ?>
+                                        </span>
+                                    <?php else: ?>
+                                        -
                                     <?php endif; ?>
-                                </td
+                                </td>
                                 <td>
                                     <?php 
                                     $priority_class = '';
@@ -590,11 +588,11 @@ $stats = mysqli_fetch_assoc($stats_result);
                                         case 'done': $priority_class = 'priority-done'; break;
                                     }
                                     ?>
-                                    <span class="<?php echo $priority_class; ?>">
+                                    <span class="priority-badge <?php echo $priority_class; ?>">
                                         <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : ($task['priority'] == 'Done' ? 'fa-check-circle' : 'fa-minus'))); ?>"></i>
                                         <?php echo $task['priority']; ?>
                                     </span>
-                                </td
+                                </td>
                                 <td>
                                     <?php 
                                     $status_class = '';
@@ -609,23 +607,23 @@ $stats = mysqli_fetch_assoc($stats_result);
                                         <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                         <?php echo $task['status']; ?>
                                     </span>
-                                </td
+                                </td>
                                 <td>
                                     <div class="assigned-staff">
                                         <i class="fas fa-users"></i> 
                                         <?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?>
                                     </div>
-                                </td
+                                </td>
                                 <td>
                                     <button class="btn-detail" onclick="window.location.href='infotask.php?id=<?php echo $task['id']; ?>'">
                                         <i class="fas fa-eye"></i> Detail
                                     </button>
-                                </td
+                                </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="9" class="empty-state">
+                            <td colspan="7" class="empty-state">
                                 <i class="fas fa-tasks"></i>
                                 Belum ada task. Silakan buat task baru dari halaman project.
                             </td>
@@ -638,17 +636,17 @@ $stats = mysqli_fetch_assoc($stats_result);
         <?php if ($total_pages > 1): ?>
             <div class="pagination">
                 <?php if ($page > 1): ?>
-                    <a href="?page=<?php echo $page-1; ?>&status=<?php echo urlencode($status_filter); ?>&format=<?php echo urlencode($format_filter); ?>&priority=<?php echo urlencode($priority_filter); ?>&search=<?php echo urlencode($search); ?>">« Prev</a>
+                    <a href="?page=<?php echo $page-1; ?>&status=<?php echo urlencode($status_filter); ?>&priority=<?php echo urlencode($priority_filter); ?>&search=<?php echo urlencode($search); ?>">« Prev</a>
                 <?php endif; ?>
                 
                 <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                    <a href="?page=<?php echo $i; ?>&status=<?php echo urlencode($status_filter); ?>&format=<?php echo urlencode($format_filter); ?>&priority=<?php echo urlencode($priority_filter); ?>&search=<?php echo urlencode($search); ?>" class="<?php echo $i == $page ? 'active' : ''; ?>">
+                    <a href="?page=<?php echo $i; ?>&status=<?php echo urlencode($status_filter); ?>&priority=<?php echo urlencode($priority_filter); ?>&search=<?php echo urlencode($search); ?>" class="<?php echo $i == $page ? 'active' : ''; ?>">
                         <?php echo $i; ?>
                     </a>
                 <?php endfor; ?>
                 
                 <?php if ($page < $total_pages): ?>
-                    <a href="?page=<?php echo $page+1; ?>&status=<?php echo urlencode($status_filter); ?>&format=<?php echo urlencode($format_filter); ?>&priority=<?php echo urlencode($priority_filter); ?>&search=<?php echo urlencode($search); ?>">Next »</a>
+                    <a href="?page=<?php echo $page+1; ?>&status=<?php echo urlencode($status_filter); ?>&priority=<?php echo urlencode($priority_filter); ?>&search=<?php echo urlencode($search); ?>">Next »</a>
                 <?php endif; ?>
             </div>
         <?php endif; ?>
@@ -657,13 +655,11 @@ $stats = mysqli_fetch_assoc($stats_result);
     <script>
         function applyFilters() {
             const status = document.getElementById('statusFilter').value;
-            const format = document.getElementById('formatFilter').value;
             const priority = document.getElementById('priorityFilter').value;
             const search = document.getElementById('searchInput').value;
             
             let url = 'task.php?';
             if (status) url += `status=${encodeURIComponent(status)}&`;
-            if (format) url += `format=${encodeURIComponent(format)}&`;
             if (priority) url += `priority=${encodeURIComponent(priority)}&`;
             if (search) url += `search=${encodeURIComponent(search)}&`;
             
