@@ -54,12 +54,10 @@ function calculatePriority($due_date) {
     $interval = $today->diff($deadline);
     $days_left = (int)$interval->format('%r%a');
     
-    // Jika sudah melewati deadline
     if ($days_left < 0) {
         return 'Urgent';
     }
     
-    // Hitung priority berdasarkan sisa hari
     if ($days_left == 0) {
         return 'Urgent';
     } elseif ($days_left >= 1 && $days_left <= 2) {
@@ -77,7 +75,6 @@ function calculatePriority($due_date) {
 
 // UPDATE PRIORITY OTOMATIS SETIAP LOAD HALAMAN
 if ($project_id > 0) {
-    // Ambil semua task dalam project ini yang belum Done
     $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id AND status != 'Done'";
     $tasks_all_result = mysqli_query($conn, $tasks_query_all);
     
@@ -86,7 +83,6 @@ if ($project_id > 0) {
         $due_date = $task_row['due_date'];
         $new_priority = calculatePriority($due_date);
         
-        // Update priority jika berbeda
         $check_priority = "SELECT priority FROM tasks WHERE id = $task_id_loop";
         $check_result = mysqli_query($conn, $check_priority);
         $current = mysqli_fetch_assoc($check_result);
@@ -114,22 +110,18 @@ function isAllStatusCompleted($conn, $task_id) {
 
 // Update status task berdasarkan checklist
 if ($project_id > 0) {
-    // Ambil semua task dalam project ini
     $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
     $tasks_all_result = mysqli_query($conn, $tasks_query_all);
     
     while ($task_row = mysqli_fetch_assoc($tasks_all_result)) {
         $task_id_loop = $task_row['id'];
         
-        // Cek apakah semua status checklist sudah selesai
         $all_completed = isAllStatusCompleted($conn, $task_id_loop);
         
         if ($all_completed) {
-            // Jika semua status sudah selesai, set status task menjadi Done
             $update_task = "UPDATE tasks SET status = 'Done', priority = 'Done' WHERE id = $task_id_loop";
             mysqli_query($conn, $update_task);
         } else {
-            // Jika status task sebelumnya Done tapi checklist belum semua selesai, kembalikan ke In Progress
             $check_task_status = "SELECT status FROM tasks WHERE id = $task_id_loop";
             $status_result = mysqli_query($conn, $check_task_status);
             $status_row = mysqli_fetch_assoc($status_result);
@@ -179,14 +171,22 @@ $stats = ['total' => 0, 'in_progress' => 0, 'done' => 0];
 $total_priority = 0;
 
 if ($project_id > 0) {
-    $where = "WHERE project_id = $project_id";
+    $where = "WHERE t.project_id = $project_id";
+    
+    // TAMBAHKAN FILTER BERDASARKAN USER YANG LOGIN (kecuali Director dan Project Coordinator)
+    // Director dan Project Coordinator bisa melihat semua task dalam project
+    if (!($user_role == 'Director' || $user_role == 'Project Coordinator')) {
+        // User biasa hanya melihat task yang diassign kepadanya
+        $where .= " AND ta.user_id = $user_id";
+    }
+    
     if (!empty($status_filter)) {
-        $where .= " AND status = '$status_filter'";
+        $where .= " AND t.status = '$status_filter'";
     }
     
     $tasks_query = "SELECT t.*, 
-                    GROUP_CONCAT(u.name SEPARATOR ', ') as assigned_staff,
-                    GROUP_CONCAT(u.id SEPARATOR ',') as assigned_staff_ids
+                    GROUP_CONCAT(DISTINCT u.name SEPARATOR ', ') as assigned_staff,
+                    GROUP_CONCAT(DISTINCT u.id SEPARATOR ',') as assigned_staff_ids
                     FROM tasks t
                     LEFT JOIN task_assignments ta ON t.id = ta.task_id
                     LEFT JOIN users u ON ta.user_id = u.id
@@ -194,28 +194,49 @@ if ($project_id > 0) {
                     GROUP BY t.id
                     ORDER BY 
                         CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END ASC,
-                        t.due_date ASC";
+                        t.due_date ASC
+                    LIMIT $offset, $limit";
     $tasks_result = mysqli_query($conn, $tasks_query);
     
-    $total_query = "SELECT COUNT(DISTINCT t.id) as total FROM tasks t $where";
+    // Hitung total data untuk pagination (dengan filter user)
+    $total_query = "SELECT COUNT(DISTINCT t.id) as total FROM tasks t
+                    LEFT JOIN task_assignments ta ON t.id = ta.task_id
+                    $where";
     $total_result = mysqli_query($conn, $total_query);
     $total_row = mysqli_fetch_assoc($total_result);
     $total_data = $total_row['total'];
     $total_pages = ceil($total_data / $limit);
     
+    // Statistik (dengan filter user yang login)
+    $stats_where = "WHERE t.project_id = $project_id";
+    if (!($user_role == 'Director' || $user_role == 'Project Coordinator')) {
+        $stats_where .= " AND ta.user_id = $user_id";
+    }
+    
     $stats_query = "SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-        SUM(CASE WHEN status = 'Done' THEN 1 ELSE 0 END) as done
-    FROM tasks WHERE project_id = $project_id";
+        COUNT(DISTINCT t.id) as total,
+        SUM(CASE WHEN t.status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+        SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) as done
+    FROM tasks t
+    LEFT JOIN task_assignments ta ON t.id = ta.task_id
+    $stats_where";
     $stats_result = mysqli_query($conn, $stats_query);
     $stats = mysqli_fetch_assoc($stats_result);
+    if (!$stats) {
+        $stats = ['total' => 0, 'in_progress' => 0, 'done' => 0];
+    }
     
-    $medium_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Medium' AND status != 'Done'");
+    // Hitung priority counts (dengan filter user yang login)
+    $priority_where = "WHERE t.project_id = $project_id AND t.status != 'Done'";
+    if (!($user_role == 'Director' || $user_role == 'Project Coordinator')) {
+        $priority_where .= " AND ta.user_id = $user_id";
+    }
+    
+    $medium_count = mysqli_query($conn, "SELECT COUNT(DISTINCT t.id) as total FROM tasks t LEFT JOIN task_assignments ta ON t.id = ta.task_id $priority_where AND t.priority = 'Medium'");
     $medium = mysqli_fetch_assoc($medium_count);
-    $high_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'High' AND status != 'Done'");
+    $high_count = mysqli_query($conn, "SELECT COUNT(DISTINCT t.id) as total FROM tasks t LEFT JOIN task_assignments ta ON t.id = ta.task_id $priority_where AND t.priority = 'High'");
     $high = mysqli_fetch_assoc($high_count);
-    $urgent_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Urgent' AND status != 'Done'");
+    $urgent_count = mysqli_query($conn, "SELECT COUNT(DISTINCT t.id) as total FROM tasks t LEFT JOIN task_assignments ta ON t.id = ta.task_id $priority_where AND t.priority = 'Urgent'");
     $urgent = mysqli_fetch_assoc($urgent_count);
     
     $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['total'] ?? 0);
