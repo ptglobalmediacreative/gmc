@@ -276,27 +276,13 @@ $stats = mysqli_fetch_assoc($stats_result);
             flex-wrap: wrap;
         }
 
-        .filter-group select, .filter-group input {
+        .filter-group select {
             padding: 8px 15px;
             border: 1px solid #ddd;
             border-radius: 8px;
             font-size: 13px;
             background: white;
             cursor: pointer;
-        }
-
-        .filter-group button {
-            padding: 8px 20px;
-            background: #1e3c72;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 13px;
-        }
-
-        .filter-group .btn-reset {
-            background: #8898aa;
         }
 
         .search-box {
@@ -309,6 +295,37 @@ $stats = mysqli_fetch_assoc($stats_result);
             border: 1px solid #ddd;
             border-radius: 8px;
             width: 250px;
+            font-size: 13px;
+        }
+
+        .btn-search {
+            background: #1e3c72;
+            color: white;
+            padding: 8px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .btn-search:hover {
+            background: #2a5298;
+        }
+
+        .btn-reset {
+            background: #8898aa;
+            color: white;
+            padding: 8px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .btn-reset:hover {
+            background: #6c757d;
         }
 
         /* Task Table */
@@ -512,11 +529,11 @@ $stats = mysqli_fetch_assoc($stats_result);
             </div>
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="Cari task/client..." value="<?php echo htmlspecialchars($search); ?>">
-                <button onclick="applyFilters()"><i class="fas fa-search"></i> Cari</button>
+                <button onclick="applyFilters()" class="btn-search"><i class="fas fa-search"></i> Cari</button>
             </div>
         </div>
 
-        <!-- Task Table - Tanpa Kolom Aksi -->
+        <!-- Task Table -->
         <div class="task-table">
             <table>
                 <thead>
