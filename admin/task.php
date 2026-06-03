@@ -27,8 +27,8 @@ $status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET
 $priority_filter = isset($_GET['priority']) ? mysqli_real_escape_string($conn, $_GET['priority']) : '';
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 
-// Build where clause
-$where = "WHERE 1=1";
+// Build where clause - Hanya menampilkan task yang diassign kepada user yang login
+$where = "WHERE ta.user_id = $user_id";
 if (!empty($status_filter)) {
     $where .= " AND t.status = '$status_filter'";
 }
@@ -39,7 +39,7 @@ if (!empty($search)) {
     $where .= " AND (t.task_name LIKE '%$search%' OR p.client_name LIKE '%$search%' OR p.kode LIKE '%$search%')";
 }
 
-// Query ambil semua task dari semua project
+// Query ambil task yang diassign kepada user yang login
 $tasks_query = "SELECT t.*, 
                 p.kode as project_kode, 
                 p.client_name,
@@ -67,23 +67,29 @@ $tasks_result = mysqli_query($conn, $tasks_query);
 // Hitung total data untuk pagination
 $total_query = "SELECT COUNT(DISTINCT t.id) as total FROM tasks t
                 LEFT JOIN projects p ON t.project_id = p.id
+                LEFT JOIN task_assignments ta ON t.id = ta.task_id
                 $where";
 $total_result = mysqli_query($conn, $total_query);
 $total_row = mysqli_fetch_assoc($total_result);
 $total_data = $total_row['total'];
 $total_pages = ceil($total_data / $limit);
 
-// Ambil statistik
+// Ambil statistik (hanya untuk task yang diassign kepada user)
 $stats_query = "SELECT 
-    COUNT(*) as total,
-    SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-    SUM(CASE WHEN status = 'Done' THEN 1 ELSE 0 END) as done,
-    SUM(CASE WHEN priority = 'Urgent' AND status != 'Done' THEN 1 ELSE 0 END) as urgent,
-    SUM(CASE WHEN priority = 'High' AND status != 'Done' THEN 1 ELSE 0 END) as high,
-    SUM(CASE WHEN priority = 'Medium' AND status != 'Done' THEN 1 ELSE 0 END) as medium
-FROM tasks";
+    COUNT(DISTINCT t.id) as total,
+    SUM(CASE WHEN t.status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+    SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) as done,
+    SUM(CASE WHEN t.priority = 'Urgent' AND t.status != 'Done' THEN 1 ELSE 0 END) as urgent,
+    SUM(CASE WHEN t.priority = 'High' AND t.status != 'Done' THEN 1 ELSE 0 END) as high,
+    SUM(CASE WHEN t.priority = 'Medium' AND t.status != 'Done' THEN 1 ELSE 0 END) as medium
+FROM tasks t
+LEFT JOIN task_assignments ta ON t.id = ta.task_id
+WHERE ta.user_id = $user_id";
 $stats_result = mysqli_query($conn, $stats_query);
 $stats = mysqli_fetch_assoc($stats_result);
+if (!$stats) {
+    $stats = ['total' => 0, 'in_progress' => 0, 'done' => 0, 'urgent' => 0, 'high' => 0, 'medium' => 0];
+}
 ?>
 
 <!DOCTYPE html>
@@ -91,7 +97,7 @@ $stats = mysqli_fetch_assoc($stats_result);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>All Tasks - Global Media Creative</title>
+    <title>My Tasks - Global Media Creative</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -472,7 +478,7 @@ $stats = mysqli_fetch_assoc($stats_result);
 
     <div class="main-content">
         <div class="top-header">
-            <h1><i class="fas fa-tasks"></i> All Tasks</h1>
+            <h1><i class="fas fa-tasks"></i> My Tasks</h1>
             <div class="user-info">
                 <span>Halo, <?php echo htmlspecialchars($_SESSION['name']); ?></span>
                 <span class="role-badge"><?php echo htmlspecialchars($_SESSION['role']); ?></span>
@@ -547,7 +553,7 @@ $stats = mysqli_fetch_assoc($stats_result);
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (mysqli_num_rows($tasks_result) > 0): ?>
+                    <?php if (isset($tasks_result) && mysqli_num_rows($tasks_result) > 0): ?>
                         <?php while ($task = mysqli_fetch_assoc($tasks_result)): 
                             $due_date = $task['due_date'];
                             $today = new DateTime();
@@ -561,10 +567,10 @@ $stats = mysqli_fetch_assoc($stats_result);
                                     <span class="task-link">
                                         <?php echo htmlspecialchars($task['task_name']); ?>
                                     </span>
-                                </td>
+                                </td
                                 <td>
                                     <span class="client-name"><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></span>
-                                </td>
+                                </td
                                 <td>
                                     <?php if ($due_date): ?>
                                         <span class="deadline-date <?php echo $is_overdue ? 'deadline-overdue' : ($is_soon ? 'deadline-soon' : ''); ?>">
@@ -578,7 +584,7 @@ $stats = mysqli_fetch_assoc($stats_result);
                                     <?php else: ?>
                                         -
                                     <?php endif; ?>
-                                </td>
+                                </td
                                 <td>
                                     <?php 
                                     $priority_class = '';
@@ -594,7 +600,7 @@ $stats = mysqli_fetch_assoc($stats_result);
                                         <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : ($task['priority'] == 'Done' ? 'fa-check-circle' : 'fa-minus'))); ?>"></i>
                                         <?php echo $task['priority']; ?>
                                     </span>
-                                </td>
+                                </td
                                 <td>
                                     <?php 
                                     $status_class = '';
@@ -609,21 +615,21 @@ $stats = mysqli_fetch_assoc($stats_result);
                                         <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                         <?php echo $task['status']; ?>
                                     </span>
-                                </td>
+                                </td
                                 <td>
                                     <div class="assigned-staff">
                                         <i class="fas fa-users"></i> 
                                         <?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?>
                                     </div>
-                                </td>
+                                </td
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
                             <td colspan="6" class="empty-state">
                                 <i class="fas fa-tasks"></i>
-                                Belum ada task. Silakan buat task baru dari halaman project.
-                            </td>
+                                Anda tidak memiliki task yang diassign. Silakan tunggu assignment dari Project Coordinator atau Director.
+                            </td
                         </tr>
                     <?php endif; ?>
                 </tbody>
