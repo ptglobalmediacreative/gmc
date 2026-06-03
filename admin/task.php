@@ -343,6 +343,7 @@ $stats = mysqli_fetch_assoc($stats_result);
 
         tr:hover {
             background: #f8f9fa;
+            cursor: pointer;
         }
 
         .task-link {
@@ -406,21 +407,6 @@ $stats = mysqli_fetch_assoc($stats_result);
         .assigned-staff i {
             margin-right: 5px;
             color: #11cdef;
-        }
-
-        .btn-detail {
-            background: #17a2b8;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-            transition: background 0.2s;
-        }
-
-        .btn-detail:hover {
-            background: #138496;
         }
 
         .pagination {
@@ -530,7 +516,7 @@ $stats = mysqli_fetch_assoc($stats_result);
             </div>
         </div>
 
-        <!-- Task Table -->
+        <!-- Task Table - Tanpa Kolom Aksi -->
         <div class="task-table">
             <table>
                 <thead>
@@ -541,7 +527,6 @@ $stats = mysqli_fetch_assoc($stats_result);
                         <th>Priority</th>
                         <th>Status</th>
                         <th>Assigned To</th>
-                        <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -554,11 +539,11 @@ $stats = mysqli_fetch_assoc($stats_result);
                             $is_overdue = ($due_date && strtotime($due_date) < time() && $task['status'] != 'Done');
                             $is_soon = ($days_left <= 3 && $days_left > 0 && $task['status'] != 'Done');
                         ?>
-                            <tr>
+                            <tr onclick="window.location.href='infotask.php?id=<?php echo $task['id']; ?>'" style="cursor: pointer;">
                                 <td>
-                                    <a href="infotask.php?id=<?php echo $task['id']; ?>" class="task-link">
+                                    <span class="task-link">
                                         <?php echo htmlspecialchars($task['task_name']); ?>
-                                    </a>
+                                    </span>
                                 </td>
                                 <td>
                                     <span class="client-name"><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></span>
@@ -614,16 +599,11 @@ $stats = mysqli_fetch_assoc($stats_result);
                                         <?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?>
                                     </div>
                                 </td>
-                                <td>
-                                    <button class="btn-detail" onclick="window.location.href='infotask.php?id=<?php echo $task['id']; ?>'">
-                                        <i class="fas fa-eye"></i> Detail
-                                    </button>
-                                </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="empty-state">
+                            <td colspan="6" class="empty-state">
                                 <i class="fas fa-tasks"></i>
                                 Belum ada task. Silakan buat task baru dari halaman project.
                             </td>
