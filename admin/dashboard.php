@@ -98,19 +98,6 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
     ];
     $unread_count++;
 }
-
-// Tambahkan notifikasi task baru (contoh, bisa dikembangkan)
-// Notifikasi untuk task yang statusnya berubah menjadi Done (jika ada)
-$done_query = "SELECT t.*, p.client_name 
-               FROM tasks t
-               LEFT JOIN projects p ON t.project_id = p.id
-               LEFT JOIN task_assignments ta ON t.id = ta.task_id
-               WHERE ta.user_id = $user_id 
-               AND t.status = 'Done'
-               AND t.updated_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
-               ORDER BY t.updated_at DESC
-               LIMIT 5";
-// Note: pastikan kolom updated_at ada di tabel tasks, jika tidak, gunakan created_at atau tambahkan kolom
 ?>
 
 <!DOCTYPE html>
@@ -454,21 +441,6 @@ $done_query = "SELECT t.*, p.client_name
             font-size: 14px;
         }
 
-        tr:hover {
-            background: #f8f9fa;
-            cursor: pointer;
-        }
-
-        .task-link {
-            color: #1e3c72;
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .task-link:hover {
-            text-decoration: underline;
-        }
-
         .priority-high {
             background: #fde8e8;
             color: #f5365c;
@@ -559,6 +531,16 @@ $done_query = "SELECT t.*, p.client_name
             margin-bottom: 10px;
             display: block;
         }
+
+        .task-link {
+            color: #1e3c72;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .task-link:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -635,7 +617,7 @@ $done_query = "SELECT t.*, p.client_name
             </div>
         </div>
 
-        <!-- TASK SCHEDULE SECTION -->
+        <!-- TASK SCHEDULE SECTION - TAMPILAN SEPERTI GAMBAR -->
         <div class="task-section">
             <div class="task-table">
                 <table>
@@ -653,12 +635,6 @@ $done_query = "SELECT t.*, p.client_name
                         <?php if (mysqli_num_rows($tasks_result) > 0): ?>
                             <?php while ($task = mysqli_fetch_assoc($tasks_result)): 
                                 $due_date = $task['due_date'];
-                                $today = new DateTime();
-                                $deadline = new DateTime($due_date);
-                                $days_left = $today->diff($deadline)->days;
-                                $is_overdue = ($due_date && strtotime($due_date) < time() && $task['status'] != 'Done');
-                                $is_soon = ($days_left <= 3 && $days_left > 0 && $task['status'] != 'Done');
-                                
                                 $priority_class = '';
                                 switch(strtolower($task['priority'])) {
                                     case 'urgent': $priority_class = 'priority-high'; break;
@@ -674,51 +650,32 @@ $done_query = "SELECT t.*, p.client_name
                                     case 'review': $status_class = 'status-review'; break;
                                     case 'to do': $status_class = 'status-pending'; break;
                                     case 'planning': $status_class = 'status-planning'; break;
-                                    case 'done': $status_class = 'status-planning'; break;
                                     default: $status_class = 'status-planning';
                                 }
                             ?>
-                                <tr onclick="window.location.href='infotask.php?id=<?php echo $task['id']; ?>'" style="cursor: pointer;">
+                                <tr>
                                     <td>
-                                        <a href="infotask.php?id=<?php echo $task['id']; ?>" class="task-link" onclick="event.stopPropagation()">
+                                        <a href="infotask.php?id=<?php echo $task['id']; ?>" class="task-link">
                                             <?php echo htmlspecialchars($task['task_name']); ?>
                                         </a>
                                     </td
+                                    <td><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></td
                                     <td>
-                                        <span class="client-name"><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></span>
-                                    </td
-                                    <td>
-                                        <?php if ($due_date): ?>
-                                            <span class="deadline <?php echo ($is_overdue || $is_soon) ? 'urgent' : ''; ?>">
-                                                <?php echo date('d M Y', strtotime($due_date)); ?>
-                                                <?php if ($is_overdue): ?>
-                                                    <br><small>(Terlewat)</small>
-                                                <?php elseif ($is_soon): ?>
-                                                    <br><small>(<?php echo $days_left; ?> hari lagi)</small>
-                                                <?php endif; ?>
-                                            </span>
-                                        <?php else: ?>
-                                            -
-                                        <?php endif; ?>
+                                        <span class="deadline <?php echo (strtotime($due_date) < strtotime('+3 days') ? 'urgent' : ''); ?>">
+                                            <?php echo date('d M Y', strtotime($due_date)); ?>
+                                        </span>
                                     </td
                                     <td>
                                         <span class="<?php echo $priority_class; ?>">
-                                            <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : 'fa-minus')); ?>"></i>
                                             <?php echo $task['priority']; ?>
                                         </span>
                                     </td
                                     <td>
                                         <span class="<?php echo $status_class; ?>">
-                                            <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                             <?php echo $task['status']; ?>
                                         </span>
                                     </td
-                                    <td>
-                                        <div class="assigned-staff">
-                                            <i class="fas fa-users"></i> 
-                                            <?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?>
-                                        </div>
-                                    </td
+                                    <td><?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?></td
                                 
     
                             <?php endwhile; ?>
@@ -726,8 +683,8 @@ $done_query = "SELECT t.*, p.client_name
                             <tr>
                                 <td colspan="6" class="empty-task">
                                     <i class="fas fa-tasks"></i>
-                                    Anda tidak memiliki task yang diassign. Silakan tunggu assignment dari Project Coordinator atau Director.
-                                </td>
+                                    Anda tidak memiliki task yang diassign.
+                                </td
                             </tr
                         <?php endif; ?>
                     </tbody>
