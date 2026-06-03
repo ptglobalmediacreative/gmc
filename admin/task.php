@@ -27,7 +27,7 @@ $status_filter = isset($_GET['status']) ? mysqli_real_escape_string($conn, $_GET
 $priority_filter = isset($_GET['priority']) ? mysqli_real_escape_string($conn, $_GET['priority']) : '';
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
 
-// Build where clause - Hanya menampilkan task yang diassign kepada user yang login
+// Build where clause - HANYA MENAMPILKAN TASK YANG DIASSIGN KE USER LOGIN
 $where = "WHERE ta.user_id = $user_id";
 if (!empty($status_filter)) {
     $where .= " AND t.status = '$status_filter'";
@@ -539,7 +539,7 @@ if (!$stats) {
             </div>
         </div>
 
-        <!-- Task Table -->
+        <!-- Task Table - 6 Kolom: Task, Client, Deadline, Priority, Status, Assigned To -->
         <div class="task-table">
             <table>
                 <thead>
@@ -567,10 +567,10 @@ if (!$stats) {
                                     <span class="task-link">
                                         <?php echo htmlspecialchars($task['task_name']); ?>
                                     </span>
-                                </td
+                                </td>
                                 <td>
                                     <span class="client-name"><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></span>
-                                </td
+                                </td>
                                 <td>
                                     <?php if ($due_date): ?>
                                         <span class="deadline-date <?php echo $is_overdue ? 'deadline-overdue' : ($is_soon ? 'deadline-soon' : ''); ?>">
@@ -584,7 +584,7 @@ if (!$stats) {
                                     <?php else: ?>
                                         -
                                     <?php endif; ?>
-                                </td
+                                </td>
                                 <td>
                                     <?php 
                                     $priority_class = '';
@@ -600,7 +600,7 @@ if (!$stats) {
                                         <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : ($task['priority'] == 'Done' ? 'fa-check-circle' : 'fa-minus'))); ?>"></i>
                                         <?php echo $task['priority']; ?>
                                     </span>
-                                </td
+                                </td>
                                 <td>
                                     <?php 
                                     $status_class = '';
@@ -615,13 +615,13 @@ if (!$stats) {
                                         <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                         <?php echo $task['status']; ?>
                                     </span>
-                                </td
+                                </td>
                                 <td>
                                     <div class="assigned-staff">
                                         <i class="fas fa-users"></i> 
                                         <?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?>
                                     </div>
-                                </td
+                                </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
@@ -629,7 +629,7 @@ if (!$stats) {
                             <td colspan="6" class="empty-state">
                                 <i class="fas fa-tasks"></i>
                                 Anda tidak memiliki task yang diassign. Silakan tunggu assignment dari Project Coordinator atau Director.
-                            </td
+                            </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
