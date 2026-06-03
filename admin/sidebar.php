@@ -20,7 +20,7 @@ if (session_status() === PHP_SESSION_NONE) {
         <a href="project.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'project.php' ? 'active' : ''; ?>">
             <i class="fas fa-project-diagram"></i> Project
         </a>
-        <a href="analisis.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'analisis.php' ? 'active' : ''; ?>">
+        <a href="task.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'analisis.php' ? 'active' : ''; ?>">
             <i class="fas fa-chart-line"></i> Task
         </a>
     </div>
