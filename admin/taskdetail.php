@@ -54,10 +54,12 @@ function calculatePriority($due_date) {
     $interval = $today->diff($deadline);
     $days_left = (int)$interval->format('%r%a');
     
+    // Jika sudah melewati deadline
     if ($days_left < 0) {
         return 'Urgent';
     }
     
+    // Hitung priority berdasarkan sisa hari
     if ($days_left == 0) {
         return 'Urgent';
     } elseif ($days_left >= 1 && $days_left <= 2) {
@@ -70,6 +72,28 @@ function calculatePriority($due_date) {
         return 'Low';
     } else {
         return 'Low';
+    }
+}
+
+// UPDATE PRIORITY OTOMATIS SETIAP LOAD HALAMAN
+if ($project_id > 0) {
+    // Ambil semua task dalam project ini yang belum Done
+    $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id AND status != 'Done'";
+    $tasks_all_result = mysqli_query($conn, $tasks_query_all);
+    
+    while ($task_row = mysqli_fetch_assoc($tasks_all_result)) {
+        $task_id_loop = $task_row['id'];
+        $due_date = $task_row['due_date'];
+        $new_priority = calculatePriority($due_date);
+        
+        // Update priority jika berbeda
+        $check_priority = "SELECT priority FROM tasks WHERE id = $task_id_loop";
+        $check_result = mysqli_query($conn, $check_priority);
+        $current = mysqli_fetch_assoc($check_result);
+        if ($current['priority'] != $new_priority) {
+            $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id_loop";
+            mysqli_query($conn, $update_priority);
+        }
     }
 }
 
@@ -88,18 +112,32 @@ function isAllStatusCompleted($conn, $task_id) {
     return false;
 }
 
-// Update priority untuk task yang due_date-nya berubah atau task baru
-// Hanya dijalankan saat diperlukan, tidak setiap load halaman
-if ($project_id > 0 && isset($_GET['update_priority']) && $_GET['update_priority'] == 1) {
-    $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id AND status != 'Done'";
+// Update status task berdasarkan checklist
+if ($project_id > 0) {
+    // Ambil semua task dalam project ini
+    $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
     $tasks_all_result = mysqli_query($conn, $tasks_query_all);
     
     while ($task_row = mysqli_fetch_assoc($tasks_all_result)) {
         $task_id_loop = $task_row['id'];
-        $due_date = $task_row['due_date'];
-        $new_priority = calculatePriority($due_date);
-        $update_priority = "UPDATE tasks SET priority = '$new_priority' WHERE id = $task_id_loop";
-        mysqli_query($conn, $update_priority);
+        
+        // Cek apakah semua status checklist sudah selesai
+        $all_completed = isAllStatusCompleted($conn, $task_id_loop);
+        
+        if ($all_completed) {
+            // Jika semua status sudah selesai, set status task menjadi Done
+            $update_task = "UPDATE tasks SET status = 'Done', priority = 'Done' WHERE id = $task_id_loop";
+            mysqli_query($conn, $update_task);
+        } else {
+            // Jika status task sebelumnya Done tapi checklist belum semua selesai, kembalikan ke In Progress
+            $check_task_status = "SELECT status FROM tasks WHERE id = $task_id_loop";
+            $status_result = mysqli_query($conn, $check_task_status);
+            $status_row = mysqli_fetch_assoc($status_result);
+            if ($status_row['status'] == 'Done') {
+                $update_task_status = "UPDATE tasks SET status = 'In Progress' WHERE id = $task_id_loop";
+                mysqli_query($conn, $update_task_status);
+            }
+        }
     }
 }
 
@@ -183,7 +221,7 @@ if ($project_id > 0) {
     $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['total'] ?? 0);
 }
 
-// Proses CRUD lainnya (add, edit, delete, bulk_delete) - tetap pakai POST biasa
+// Proses CRUD lainnya (add, edit, delete, bulk_delete)
 if ($can_manage && $_SERVER['REQUEST_METHOD'] == 'POST' && !isset($_POST['ajax_action'])) {
     if (isset($_POST['action'])) {
         $action = $_POST['action'];
