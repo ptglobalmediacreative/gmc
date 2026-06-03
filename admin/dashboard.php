@@ -4,6 +4,9 @@ ini_set('display_errors', 1);
 require_once "config.php";
 session_start();
 
+// Set zona waktu Jakarta
+date_default_timezone_set('Asia/Jakarta');
+
 // Cek login
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -12,9 +15,26 @@ if (!isset($_SESSION['user_id'])) {
 
 // Ambil data user
 $user_id = $_SESSION['user_id'];
-$query_user = "SELECT * FROM users WHERE id = '$user_id'";
-$result_user = mysqli_query($conn, $query_user);
-$user = mysqli_fetch_assoc($result_user);
+$user_role = $_SESSION['role'];
+$user_name = $_SESSION['name'];
+
+// Query total project (semua project)
+$query_project_total = "SELECT COUNT(*) as total FROM projects";
+$result_project_total = mysqli_query($conn, $query_project_total);
+$total_project = 0;
+if ($result_project_total) {
+    $data = mysqli_fetch_assoc($result_project_total);
+    $total_project = $data['total'];
+}
+
+// Query total project aktif (status In Progress)
+$query_project_aktif = "SELECT COUNT(*) as total FROM projects WHERE status = 'In Progress'";
+$result_project_aktif = mysqli_query($conn, $query_project_aktif);
+$total_project_aktif = 0;
+if ($result_project_aktif) {
+    $data = mysqli_fetch_assoc($result_project_aktif);
+    $total_project_aktif = $data['total'];
+}
 
 // Hitung total staff
 $query_staff = "SELECT COUNT(*) as total FROM users";
@@ -25,100 +45,72 @@ if ($result_staff) {
     $total_staff = $data['total'];
 }
 
-// Sementara untuk Total Client dan Total Project Aktif
-$total_client = 0;
-$total_project_aktif = 0;
+// Ambil task yang diassign kepada user yang login (sama seperti task.php)
+$tasks_query = "SELECT t.*, 
+                p.kode as project_kode, 
+                p.client_name,
+                GROUP_CONCAT(DISTINCT u.name SEPARATOR ', ') as assigned_staff
+                FROM tasks t
+                LEFT JOIN projects p ON t.project_id = p.id
+                LEFT JOIN task_assignments ta ON t.id = ta.task_id
+                LEFT JOIN users u ON ta.user_id = u.id
+                WHERE ta.user_id = $user_id
+                GROUP BY t.id
+                ORDER BY 
+                    CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END ASC,
+                    CASE t.priority 
+                        WHEN 'Urgent' THEN 1 
+                        WHEN 'High' THEN 2 
+                        WHEN 'Medium' THEN 3 
+                        WHEN 'Low' THEN 4 
+                        WHEN 'Done' THEN 5
+                        ELSE 6 
+                    END ASC,
+                    t.due_date ASC
+                LIMIT 10";
+$tasks_result = mysqli_query($conn, $tasks_query);
 
-// Data task schedule (sementara, nanti dari database)
-$tasks = [
-    [
-        'title' => 'Briefing Project Website',
-        'client' => 'PT Maju Bersama',
-        'deadline' => '2025-06-30',
-        'priority' => 'High',
-        'status' => 'In Progress',
-        'assigned_to' => 'Tim Creative'
-    ],
-    [
-        'title' => 'Desain Logo Branding',
-        'client' => 'Warung Kopi Nusantara',
-        'deadline' => '2025-06-25',
-        'priority' => 'Medium',
-        'status' => 'Review',
-        'assigned_to' => 'Tim Desain'
-    ],
-    [
-        'title' => 'Konten Instagram Campaign',
-        'client' => 'Fashion Store ID',
-        'deadline' => '2025-06-28',
-        'priority' => 'High',
-        'status' => 'Pending',
-        'assigned_to' => 'Tim Sosmed'
-    ],
-    [
-        'title' => 'Video Company Profile',
-        'client' => 'Startup Tech Solution',
-        'deadline' => '2025-07-05',
-        'priority' => 'Low',
-        'status' => 'Planning',
-        'assigned_to' => 'Tim Video'
-    ],
-    [
-        'title' => 'SEO Optimization Website',
-        'client' => 'E-commerce Jaya Abadi',
-        'deadline' => '2025-06-27',
-        'priority' => 'Medium',
-        'status' => 'In Progress',
-        'assigned_to' => 'Tim IT'
-    ]
-];
+// Hitung notifikasi (task yang deadline <= 3 hari dan belum Done)
+$notif_query = "SELECT t.*, p.client_name 
+                FROM tasks t
+                LEFT JOIN projects p ON t.project_id = p.id
+                LEFT JOIN task_assignments ta ON t.id = ta.task_id
+                WHERE ta.user_id = $user_id 
+                AND t.status != 'Done'
+                AND t.due_date IS NOT NULL
+                AND DATEDIFF(t.due_date, CURDATE()) <= 3
+                AND DATEDIFF(t.due_date, CURDATE()) >= 0
+                ORDER BY t.due_date ASC";
+$notif_result = mysqli_query($conn, $notif_query);
+$notifications = [];
+$unread_count = 0;
 
-// Data notifikasi sementara
-$notifications = [
-    [
-        'id' => 1,
-        'title' => 'Task Baru',
-        'message' => 'Briefing Project Website telah ditambahkan',
-        'time' => '5 menit lalu',
-        'icon' => 'fas fa-tasks',
-        'color' => '#1e3c72',
-        'is_read' => false
-    ],
-    [
-        'id' => 2,
+while ($row = mysqli_fetch_assoc($notif_result)) {
+    $days_left = (int)((strtotime($row['due_date']) - time()) / 86400);
+    $notifications[] = [
+        'id' => $row['id'],
         'title' => 'Deadline Mendekat',
-        'message' => 'Task "Desain Logo Branding" deadline 2 hari lagi',
-        'time' => '1 jam lalu',
+        'message' => 'Task "' . $row['task_name'] . '" deadline ' . $days_left . ' hari lagi',
+        'time' => $days_left . ' hari lagi',
         'icon' => 'fas fa-clock',
         'color' => '#f5365c',
         'is_read' => false
-    ],
-    [
-        'id' => 3,
-        'title' => 'Task Completed',
-        'message' => 'Task "Konten Instagram Campaign" telah selesai',
-        'time' => '3 jam lalu',
-        'icon' => 'fas fa-check-circle',
-        'color' => '#2dce89',
-        'is_read' => true
-    ],
-    [
-        'id' => 4,
-        'title' => 'Staff Baru',
-        'message' => 'Tim Desain telah menambahkan member baru',
-        'time' => 'kemarin',
-        'icon' => 'fas fa-user-plus',
-        'color' => '#11cdef',
-        'is_read' => true
-    ]
-];
-
-$unread_count = 0;
-foreach ($notifications as $notif) {
-    if (!$notif['is_read']) {
-        $unread_count++;
-    }
+    ];
+    $unread_count++;
 }
+
+// Tambahkan notifikasi task baru (contoh, bisa dikembangkan)
+// Notifikasi untuk task yang statusnya berubah menjadi Done (jika ada)
+$done_query = "SELECT t.*, p.client_name 
+               FROM tasks t
+               LEFT JOIN projects p ON t.project_id = p.id
+               LEFT JOIN task_assignments ta ON t.id = ta.task_id
+               WHERE ta.user_id = $user_id 
+               AND t.status = 'Done'
+               AND t.updated_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
+               ORDER BY t.updated_at DESC
+               LIMIT 5";
+// Note: pastikan kolom updated_at ada di tabel tasks, jika tidak, gunakan created_at atau tambahkan kolom
 ?>
 
 <!DOCTYPE html>
@@ -462,6 +454,21 @@ foreach ($notifications as $notif) {
             font-size: 14px;
         }
 
+        tr:hover {
+            background: #f8f9fa;
+            cursor: pointer;
+        }
+
+        .task-link {
+            color: #1e3c72;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .task-link:hover {
+            text-decoration: underline;
+        }
+
         .priority-high {
             background: #fde8e8;
             color: #f5365c;
@@ -546,6 +553,12 @@ foreach ($notifications as $notif) {
             padding: 50px;
             color: #8898aa;
         }
+
+        .empty-task i {
+            font-size: 48px;
+            margin-bottom: 10px;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -571,18 +584,25 @@ foreach ($notifications as $notif) {
                             <a href="#">Tandai semua sudah dibaca</a>
                         </div>
                         <div class="notification-list">
-                            <?php foreach ($notifications as $notif): ?>
-                                <div class="notification-item <?php echo !$notif['is_read'] ? 'unread' : ''; ?>">
-                                    <div class="notification-icon" style="background: <?php echo $notif['color']; ?>;">
-                                        <i class="<?php echo $notif['icon']; ?>"></i>
+                            <?php if (count($notifications) > 0): ?>
+                                <?php foreach ($notifications as $notif): ?>
+                                    <div class="notification-item unread">
+                                        <div class="notification-icon" style="background: <?php echo $notif['color']; ?>;">
+                                            <i class="<?php echo $notif['icon']; ?>"></i>
+                                        </div>
+                                        <div class="notification-content">
+                                            <div class="notification-title"><?php echo $notif['title']; ?></div>
+                                            <div class="notification-message"><?php echo $notif['message']; ?></div>
+                                            <div class="notification-time"><?php echo $notif['time']; ?></div>
+                                        </div>
                                     </div>
-                                    <div class="notification-content">
-                                        <div class="notification-title"><?php echo $notif['title']; ?></div>
-                                        <div class="notification-message"><?php echo $notif['message']; ?></div>
-                                        <div class="notification-time"><?php echo $notif['time']; ?></div>
-                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div style="text-align: center; padding: 30px; color: #8898aa;">
+                                    <i class="fas fa-bell-slash" style="font-size: 30px; margin-bottom: 10px; display: block;"></i>
+                                    Tidak ada notifikasi
                                 </div>
-                            <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
                         <div class="notification-footer">
                             <a href="#">Lihat semua notifikasi</a>
@@ -599,9 +619,9 @@ foreach ($notifications as $notif) {
         <!-- Stats Cards - 3 cards -->
         <div class="stats-grid">
             <div class="stat-card">
-                <i class="fas fa-users"></i>
+                <i class="fas fa-building"></i>
                 <h4>Total Client</h4>
-                <div class="value"><?php echo $total_client; ?></div>
+                <div class="value"><?php echo $total_project; ?></div>
             </div>
             <div class="stat-card">
                 <i class="fas fa-project-diagram"></i>
@@ -630,39 +650,88 @@ foreach ($notifications as $notif) {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (count($tasks) > 0): ?>
-                            <?php foreach ($tasks as $task): ?>
-                                <tr>
-                                    <td><strong><?php echo $task['title']; ?></strong></td>
-                                    <td><?php echo $task['client']; ?></td>
+                        <?php if (mysqli_num_rows($tasks_result) > 0): ?>
+                            <?php while ($task = mysqli_fetch_assoc($tasks_result)): 
+                                $due_date = $task['due_date'];
+                                $today = new DateTime();
+                                $deadline = new DateTime($due_date);
+                                $days_left = $today->diff($deadline)->days;
+                                $is_overdue = ($due_date && strtotime($due_date) < time() && $task['status'] != 'Done');
+                                $is_soon = ($days_left <= 3 && $days_left > 0 && $task['status'] != 'Done');
+                                
+                                $priority_class = '';
+                                switch(strtolower($task['priority'])) {
+                                    case 'urgent': $priority_class = 'priority-high'; break;
+                                    case 'high': $priority_class = 'priority-high'; break;
+                                    case 'medium': $priority_class = 'priority-medium'; break;
+                                    case 'low': $priority_class = 'priority-low'; break;
+                                    default: $priority_class = 'priority-low';
+                                }
+                                
+                                $status_class = '';
+                                switch(strtolower($task['status'])) {
+                                    case 'in progress': $status_class = 'status-progress'; break;
+                                    case 'review': $status_class = 'status-review'; break;
+                                    case 'to do': $status_class = 'status-pending'; break;
+                                    case 'planning': $status_class = 'status-planning'; break;
+                                    case 'done': $status_class = 'status-planning'; break;
+                                    default: $status_class = 'status-planning';
+                                }
+                            ?>
+                                <tr onclick="window.location.href='infotask.php?id=<?php echo $task['id']; ?>'" style="cursor: pointer;">
                                     <td>
-                                        <span class="deadline <?php echo (strtotime($task['deadline']) < strtotime('+3 days') ? 'urgent' : ''); ?>">
-                                            <?php echo date('d M Y', strtotime($task['deadline'])); ?>
-                                        </span>
-                                    </td>
+                                        <a href="infotask.php?id=<?php echo $task['id']; ?>" class="task-link" onclick="event.stopPropagation()">
+                                            <?php echo htmlspecialchars($task['task_name']); ?>
+                                        </a>
+                                    </td
                                     <td>
-                                        <span class="priority-<?php echo strtolower($task['priority']); ?>">
+                                        <span class="client-name"><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></span>
+                                    </td
+                                    <td>
+                                        <?php if ($due_date): ?>
+                                            <span class="deadline <?php echo ($is_overdue || $is_soon) ? 'urgent' : ''; ?>">
+                                                <?php echo date('d M Y', strtotime($due_date)); ?>
+                                                <?php if ($is_overdue): ?>
+                                                    <br><small>(Terlewat)</small>
+                                                <?php elseif ($is_soon): ?>
+                                                    <br><small>(<?php echo $days_left; ?> hari lagi)</small>
+                                                <?php endif; ?>
+                                            </span>
+                                        <?php else: ?>
+                                            -
+                                        <?php endif; ?>
+                                    </td
+                                    <td>
+                                        <span class="<?php echo $priority_class; ?>">
+                                            <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : 'fa-minus')); ?>"></i>
                                             <?php echo $task['priority']; ?>
                                         </span>
-                                    </td>
+                                    </td
                                     <td>
-                                        <span class="status-<?php echo strtolower(str_replace(' ', '', $task['status'])); ?>">
+                                        <span class="<?php echo $status_class; ?>">
+                                            <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                             <?php echo $task['status']; ?>
                                         </span>
-                                    </td>
-                                    <td><?php echo $task['assigned_to']; ?></td>
-                                </tr>
-                            <?php endforeach; ?>
+                                    </td
+                                    <td>
+                                        <div class="assigned-staff">
+                                            <i class="fas fa-users"></i> 
+                                            <?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?>
+                                        </div>
+                                    </td
+                                
+    
+                            <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
                                 <td colspan="6" class="empty-task">
-                                    <i class="fas fa-calendar-alt" style="font-size: 40px; margin-bottom: 10px; display: block;"></i>
-                                    Belum ada task schedule.
+                                    <i class="fas fa-tasks"></i>
+                                    Anda tidak memiliki task yang diassign. Silakan tunggu assignment dari Project Coordinator atau Director.
                                 </td>
-                            </tr>
+                            </tr
                         <?php endif; ?>
                     </tbody>
-                </table>
+                </table
             </div>
         </div>
     </div>
