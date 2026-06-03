@@ -23,11 +23,5 @@ if (session_status() === PHP_SESSION_NONE) {
         <a href="analisis.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'analisis.php' ? 'active' : ''; ?>">
             <i class="fas fa-chart-line"></i> Task
         </a>
-        <a href="kalender.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'kalender.php' ? 'active' : ''; ?>">
-            <i class="fas fa-calendar"></i> Contoh
-        </a>
-        <a href="pesan.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'pesan.php' ? 'active' : ''; ?>">
-            <i class="fas fa-envelope"></i> Contoh
-        </a>
     </div>
 </div>
