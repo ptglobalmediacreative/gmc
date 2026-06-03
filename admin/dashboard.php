@@ -45,7 +45,7 @@ if ($result_staff) {
     $total_staff = $data['total'];
 }
 
-// Ambil task yang diassign kepada user yang login (sama seperti task.php)
+// Ambil task yang diassign kepada user yang login
 $tasks_query = "SELECT t.*, 
                 p.kode as project_kode, 
                 p.client_name,
@@ -441,6 +441,11 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
             font-size: 14px;
         }
 
+        tr:hover {
+            background: #f8f9fa;
+            cursor: pointer;
+        }
+
         .priority-high {
             background: #fde8e8;
             color: #f5365c;
@@ -617,7 +622,7 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
             </div>
         </div>
 
-        <!-- TASK SCHEDULE SECTION - TAMPILAN SEPERTI GAMBAR -->
+        <!-- TASK SCHEDULE SECTION -->
         <div class="task-section">
             <div class="task-table">
                 <table>
@@ -653,42 +658,41 @@ while ($row = mysqli_fetch_assoc($notif_result)) {
                                     default: $status_class = 'status-planning';
                                 }
                             ?>
-                                <tr>
+                                <tr onclick="window.location.href='infotask.php?id=<?php echo $task['id']; ?>'" style="cursor: pointer;">
                                     <td>
-                                        <a href="infotask.php?id=<?php echo $task['id']; ?>" class="task-link">
+                                        <a href="infotask.php?id=<?php echo $task['id']; ?>" class="task-link" onclick="event.stopPropagation()">
                                             <?php echo htmlspecialchars($task['task_name']); ?>
                                         </a>
-                                    </td
-                                    <td><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></td
+                                    </td>
+                                    <td><?php echo htmlspecialchars($task['client_name'] ?: '-'); ?></td>
                                     <td>
                                         <span class="deadline <?php echo (strtotime($due_date) < strtotime('+3 days') ? 'urgent' : ''); ?>">
                                             <?php echo date('d M Y', strtotime($due_date)); ?>
                                         </span>
-                                    </td
+                                    </td>
                                     <td>
                                         <span class="<?php echo $priority_class; ?>">
                                             <?php echo $task['priority']; ?>
                                         </span>
-                                    </td
+                                    </td>
                                     <td>
                                         <span class="<?php echo $status_class; ?>">
                                             <?php echo $task['status']; ?>
                                         </span>
-                                    </td
-                                    <td><?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?></td
-                                
-    
+                                    </td>
+                                    <td><?php echo !empty($task['assigned_staff']) ? htmlspecialchars($task['assigned_staff']) : '-'; ?></td>
+                                </tr>
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
                                 <td colspan="6" class="empty-task">
                                     <i class="fas fa-tasks"></i>
                                     Anda tidak memiliki task yang diassign.
-                                </td
-                            </tr
+                                </td>
+                            </tr>
                         <?php endif; ?>
                     </tbody>
-                </table
+                </table>
             </div>
         </div>
     </div>
