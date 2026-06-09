@@ -150,10 +150,9 @@ if ($project_id > 0) {
         $where .= " AND t.status = '$status_filter'";
     }
     
-    // Query ambil tasks
     $tasks_query = "SELECT t.*, 
-                    GROUP_CONCAT(DISTINCT u.name SEPARATOR ', ') as assigned_staff,
-                    GROUP_CONCAT(DISTINCT u.id SEPARATOR ',') as assigned_staff_ids
+                    GROUP_CONCAT(u.name SEPARATOR ', ') as assigned_staff,
+                    GROUP_CONCAT(u.id SEPARATOR ',') as assigned_staff_ids
                     FROM tasks t
                     LEFT JOIN task_assignments ta ON t.id = ta.task_id
                     LEFT JOIN users u ON ta.user_id = u.id
@@ -165,7 +164,6 @@ if ($project_id > 0) {
                     LIMIT $offset, $limit";
     $tasks_result = mysqli_query($conn, $tasks_query);
     
-    // Hitung total data untuk pagination
     $total_query = "SELECT COUNT(DISTINCT t.id) as total FROM tasks t
                     LEFT JOIN task_assignments ta ON t.id = ta.task_id
                     $where";
@@ -174,36 +172,19 @@ if ($project_id > 0) {
     $total_data = $total_row['total'];
     $total_pages = ceil($total_data / $limit);
     
-    // Statistik Total, In Progress, Done (tanpa filter status dari URL)
-    $stats_where = "WHERE t.project_id = $project_id";
-    if (!($user_role == 'Director' || $user_role == 'Project Coordinator')) {
-        $stats_where .= " AND ta.user_id = $user_id";
-    }
-    
     $stats_query = "SELECT 
-        COUNT(DISTINCT t.id) as total,
-        SUM(CASE WHEN t.status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-        SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) as done
-    FROM tasks t
-    LEFT JOIN task_assignments ta ON t.id = ta.task_id
-    $stats_where";
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+        SUM(CASE WHEN status = 'Done' THEN 1 ELSE 0 END) as done
+    FROM tasks WHERE project_id = $project_id";
     $stats_result = mysqli_query($conn, $stats_query);
     $stats = mysqli_fetch_assoc($stats_result);
-    if (!$stats) {
-        $stats = ['total' => 0, 'in_progress' => 0, 'done' => 0];
-    }
     
-    // Hitung priority counts (Medium, High, Urgent) - hanya untuk task yang belum Done
-    $priority_where = "WHERE t.project_id = $project_id AND t.status != 'Done'";
-    if (!($user_role == 'Director' || $user_role == 'Project Coordinator')) {
-        $priority_where .= " AND ta.user_id = $user_id";
-    }
-    
-    $medium_count = mysqli_query($conn, "SELECT COUNT(DISTINCT t.id) as total FROM tasks t LEFT JOIN task_assignments ta ON t.id = ta.task_id $priority_where AND t.priority = 'Medium'");
+    $medium_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Medium' AND status != 'Done'");
     $medium = mysqli_fetch_assoc($medium_count);
-    $high_count = mysqli_query($conn, "SELECT COUNT(DISTINCT t.id) as total FROM tasks t LEFT JOIN task_assignments ta ON t.id = ta.task_id $priority_where AND t.priority = 'High'");
+    $high_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'High' AND status != 'Done'");
     $high = mysqli_fetch_assoc($high_count);
-    $urgent_count = mysqli_query($conn, "SELECT COUNT(DISTINCT t.id) as total FROM tasks t LEFT JOIN task_assignments ta ON t.id = ta.task_id $priority_where AND t.priority = 'Urgent'");
+    $urgent_count = mysqli_query($conn, "SELECT COUNT(*) as total FROM tasks WHERE project_id = $project_id AND priority = 'Urgent' AND status != 'Done'");
     $urgent = mysqli_fetch_assoc($urgent_count);
     
     $total_priority = ($medium['total'] ?? 0) + ($high['total'] ?? 0) + ($urgent['total'] ?? 0);
@@ -337,7 +318,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
     <title>Task Detail - <?php echo $project ? htmlspecialchars($project['kode']) : 'Task Manager'; ?> - Global Media Creative</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* SEMUA STYLE SAMA - Tidak diubah */
+        /* SEMUA STYLE SAMA PERSIS SEPERTI AWAL - TIDAK DIUBAH */
         * {
             margin: 0;
             padding: 0;
@@ -941,7 +922,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                             <i class="fas fa-users"></i> <?php echo htmlspecialchars($task['assigned_staff']); ?>
                                         </div>
                                     <?php endif; ?>
-                                </td
+                                </td>
                                 <td>
                                     <?php 
                                     $format_class = '';
@@ -955,14 +936,14 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                         <i class="fas <?php echo $task['format'] == 'Video' ? 'fa-video' : ($task['format'] == 'Image' ? 'fa-image' : 'fa-film'); ?>"></i>
                                         <?php echo $task['format']; ?>
                                     </span>
-                                </td
-                                <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td
+                                </td>
+                                <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td>
                                 <td>
                                     <?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?>
-                                    <?php if ($task['due_date'] && strtotime($task['due_date']) < time() && $task['status'] != 'Done'): ?>
+                                    <?php if ($task['due_date'] && strtotime($task['due_date']) < time()): ?>
                                         <br><small style="color: #f5365c;">(Terlewat)</small>
                                     <?php endif; ?>
-                                </td
+                                </td>
                                 <td>
                                     <?php 
                                     $priority_class = '';
@@ -978,7 +959,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                         <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : ($task['priority'] == 'Done' ? 'fa-check-circle' : 'fa-minus'))); ?>"></i>
                                         <?php echo $task['priority']; ?>
                                     </span>
-                                </td
+                                </td>
                                 <td>
                                     <?php 
                                     $status_class = '';
@@ -993,7 +974,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                         <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                         <?php echo $task['status']; ?>
                                     </span>
-                                </td
+                                </td>
                                 <?php if ($can_manage): ?>
                                 <td>
                                     <select class="status-select" data-task-id="<?php echo $task['id']; ?>" data-current-status="<?php echo $task['status']; ?>">
@@ -1004,9 +985,9 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                     <button onclick="openEditModal(<?php echo $task['id']; ?>)" style="background: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
-                                </td
+                                </td>
                                 <?php endif; ?>
-                            </tr
+                            </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
@@ -1247,7 +1228,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                 
                 const parentTd = this.parentElement;
                 const loadingSpinner = parentTd.querySelector('.status-loading');
-                const statusBadge = parentTd.previousElementSibling?.querySelector('.status-badge');
+                const statusBadge = parentTd.previousElementSibling.querySelector('.status-badge');
                 
                 if (loadingSpinner) loadingSpinner.style.display = 'inline-block';
                 this.disabled = true;
@@ -1262,17 +1243,9 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // Update status badge
                         if (statusBadge) {
-                            let newClass = '';
-                            if (newStatus === 'Done') {
-                                newClass = 'status-badge status-Done';
-                                statusBadge.innerHTML = `<i class="fas fa-check-circle"></i> Done`;
-                            } else {
-                                newClass = 'status-badge status-InProgress';
-                                statusBadge.innerHTML = `<i class="fas fa-spinner fa-pulse"></i> In Progress`;
-                            }
-                            statusBadge.className = newClass;
+                            statusBadge.className = statusBadge.className.replace(/status-\w+/, `status-${newStatus.replace(/ /g, '')}`);
+                            statusBadge.innerHTML = `<i class="fas ${newStatus === 'Done' ? 'fa-check-circle' : 'fa-spinner fa-pulse'}"></i> ${newStatus}`;
                         }
                         this.dataset.currentStatus = newStatus;
                         
