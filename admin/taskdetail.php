@@ -43,8 +43,13 @@ $create_table = "CREATE TABLE IF NOT EXISTS tasks (
 )";
 mysqli_query($conn, $create_table);
 
-// Fungsi untuk menghitung priority berdasarkan deadline
-function calculatePriority($due_date) {
+// Fungsi untuk menghitung priority berdasarkan deadline (hanya untuk task yang belum Done)
+function calculatePriority($due_date, $status) {
+    // Jika status sudah Done, return Done
+    if ($status == 'Done') {
+        return 'Done';
+    }
+    
     if (empty($due_date)) {
         return 'Low';
     }
@@ -73,15 +78,16 @@ function calculatePriority($due_date) {
     }
 }
 
-// UPDATE PRIORITY OTOMATIS SETIAP LOAD HALAMAN
+// UPDATE PRIORITY OTOMATIS SETIAP LOAD HALAMAN (hanya untuk task yang belum Done)
 if ($project_id > 0) {
-    $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id AND status != 'Done'";
+    $tasks_query_all = "SELECT id, due_date, status FROM tasks WHERE project_id = $project_id";
     $tasks_all_result = mysqli_query($conn, $tasks_query_all);
     
     while ($task_row = mysqli_fetch_assoc($tasks_all_result)) {
         $task_id_loop = $task_row['id'];
         $due_date = $task_row['due_date'];
-        $new_priority = calculatePriority($due_date);
+        $current_status = $task_row['status'];
+        $new_priority = calculatePriority($due_date, $current_status);
         
         $check_priority = "SELECT priority FROM tasks WHERE id = $task_id_loop";
         $check_result = mysqli_query($conn, $check_priority);
@@ -93,61 +99,23 @@ if ($project_id > 0) {
     }
 }
 
-// Fungsi untuk mengecek apakah semua status checklist sudah selesai untuk suatu task
-function isAllStatusCompleted($conn, $task_id) {
-    $check_query = "SELECT COUNT(*) as total, 
-                           SUM(CASE WHEN is_checked = 1 THEN 1 ELSE 0 END) as completed
-                    FROM task_status_checklist 
-                    WHERE task_id = $task_id";
-    $check_result = mysqli_query($conn, $check_query);
-    $check_row = mysqli_fetch_assoc($check_result);
-    
-    if ($check_row['total'] > 0 && $check_row['total'] == $check_row['completed']) {
-        return true;
-    }
-    return false;
-}
-
-// Update status task berdasarkan checklist
-if ($project_id > 0) {
-    $tasks_query_all = "SELECT id, due_date FROM tasks WHERE project_id = $project_id";
-    $tasks_all_result = mysqli_query($conn, $tasks_query_all);
-    
-    while ($task_row = mysqli_fetch_assoc($tasks_all_result)) {
-        $task_id_loop = $task_row['id'];
-        
-        $all_completed = isAllStatusCompleted($conn, $task_id_loop);
-        
-        if ($all_completed) {
-            $update_task = "UPDATE tasks SET status = 'Done', priority = 'Done' WHERE id = $task_id_loop";
-            mysqli_query($conn, $update_task);
-        } else {
-            $check_task_status = "SELECT status FROM tasks WHERE id = $task_id_loop";
-            $status_result = mysqli_query($conn, $check_task_status);
-            $status_row = mysqli_fetch_assoc($status_result);
-            if ($status_row['status'] == 'Done') {
-                $update_task_status = "UPDATE tasks SET status = 'In Progress' WHERE id = $task_id_loop";
-                mysqli_query($conn, $update_task_status);
-            }
-        }
-    }
-}
-
 // Proses update status via AJAX
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_action']) && $_POST['ajax_action'] == 'update_task_status') {
     header('Content-Type: application/json');
     $id = (int)$_POST['task_id'];
     $status = mysqli_real_escape_string($conn, $_POST['status']);
     
+    // Update status task
     $update = "UPDATE tasks SET status='$status' WHERE id=$id";
     if (mysqli_query($conn, $update)) {
+        // Update priority berdasarkan status baru
         if ($status == 'Done') {
             mysqli_query($conn, "UPDATE tasks SET priority='Done' WHERE id=$id");
         } else {
             $task_data = mysqli_query($conn, "SELECT due_date FROM tasks WHERE id=$id");
             $task_row = mysqli_fetch_assoc($task_data);
             $due_date = $task_row['due_date'];
-            $new_priority = calculatePriority($due_date);
+            $new_priority = calculatePriority($due_date, $status);
             mysqli_query($conn, "UPDATE tasks SET priority='$new_priority' WHERE id=$id");
         }
         echo json_encode(['success' => true, 'message' => 'Status berhasil diupdate']);
@@ -173,10 +141,8 @@ $total_priority = 0;
 if ($project_id > 0) {
     $where = "WHERE t.project_id = $project_id";
     
-    // TAMBAHKAN FILTER BERDASARKAN USER YANG LOGIN (kecuali Director dan Project Coordinator)
-    // Director dan Project Coordinator bisa melihat semua task dalam project
+    // Filter berdasarkan user yang login (kecuali Director dan Project Coordinator)
     if (!($user_role == 'Director' || $user_role == 'Project Coordinator')) {
-        // User biasa hanya melihat task yang diassign kepadanya
         $where .= " AND ta.user_id = $user_id";
     }
     
@@ -184,6 +150,7 @@ if ($project_id > 0) {
         $where .= " AND t.status = '$status_filter'";
     }
     
+    // Query ambil tasks
     $tasks_query = "SELECT t.*, 
                     GROUP_CONCAT(DISTINCT u.name SEPARATOR ', ') as assigned_staff,
                     GROUP_CONCAT(DISTINCT u.id SEPARATOR ',') as assigned_staff_ids
@@ -198,7 +165,7 @@ if ($project_id > 0) {
                     LIMIT $offset, $limit";
     $tasks_result = mysqli_query($conn, $tasks_query);
     
-    // Hitung total data untuk pagination (dengan filter user)
+    // Hitung total data untuk pagination
     $total_query = "SELECT COUNT(DISTINCT t.id) as total FROM tasks t
                     LEFT JOIN task_assignments ta ON t.id = ta.task_id
                     $where";
@@ -207,7 +174,7 @@ if ($project_id > 0) {
     $total_data = $total_row['total'];
     $total_pages = ceil($total_data / $limit);
     
-    // Statistik (dengan filter user yang login)
+    // Statistik Total, In Progress, Done (tanpa filter status dari URL)
     $stats_where = "WHERE t.project_id = $project_id";
     if (!($user_role == 'Director' || $user_role == 'Project Coordinator')) {
         $stats_where .= " AND ta.user_id = $user_id";
@@ -226,7 +193,7 @@ if ($project_id > 0) {
         $stats = ['total' => 0, 'in_progress' => 0, 'done' => 0];
     }
     
-    // Hitung priority counts (dengan filter user yang login)
+    // Hitung priority counts (Medium, High, Urgent) - hanya untuk task yang belum Done
     $priority_where = "WHERE t.project_id = $project_id AND t.status != 'Done'";
     if (!($user_role == 'Director' || $user_role == 'Project Coordinator')) {
         $priority_where .= " AND ta.user_id = $user_id";
@@ -370,7 +337,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
     <title>Task Detail - <?php echo $project ? htmlspecialchars($project['kode']) : 'Task Manager'; ?> - Global Media Creative</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* SEMUA STYLE SAMA SEPERTI SEBELUMNYA - Tidak diubah */
+        /* SEMUA STYLE SAMA - Tidak diubah */
         * {
             margin: 0;
             padding: 0;
@@ -974,7 +941,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                             <i class="fas fa-users"></i> <?php echo htmlspecialchars($task['assigned_staff']); ?>
                                         </div>
                                     <?php endif; ?>
-                                </td>
+                                </td
                                 <td>
                                     <?php 
                                     $format_class = '';
@@ -988,14 +955,14 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                         <i class="fas <?php echo $task['format'] == 'Video' ? 'fa-video' : ($task['format'] == 'Image' ? 'fa-image' : 'fa-film'); ?>"></i>
                                         <?php echo $task['format']; ?>
                                     </span>
-                                </td>
-                                <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td>
+                                </td
+                                <td><?php echo $task['start_date'] ? date('d M Y', strtotime($task['start_date'])) : '-'; ?></td
                                 <td>
                                     <?php echo $task['due_date'] ? date('d M Y', strtotime($task['due_date'])) : '-'; ?>
-                                    <?php if ($task['due_date'] && strtotime($task['due_date']) < time()): ?>
+                                    <?php if ($task['due_date'] && strtotime($task['due_date']) < time() && $task['status'] != 'Done'): ?>
                                         <br><small style="color: #f5365c;">(Terlewat)</small>
                                     <?php endif; ?>
-                                </td>
+                                </td
                                 <td>
                                     <?php 
                                     $priority_class = '';
@@ -1011,7 +978,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                         <i class="fas <?php echo $task['priority'] == 'Urgent' ? 'fa-exclamation-circle' : ($task['priority'] == 'High' ? 'fa-arrow-up' : ($task['priority'] == 'Low' ? 'fa-arrow-down' : ($task['priority'] == 'Done' ? 'fa-check-circle' : 'fa-minus'))); ?>"></i>
                                         <?php echo $task['priority']; ?>
                                     </span>
-                                </td>
+                                </td
                                 <td>
                                     <?php 
                                     $status_class = '';
@@ -1026,7 +993,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                         <i class="fas <?php echo $task['status'] == 'Done' ? 'fa-check-circle' : ($task['status'] == 'In Progress' ? 'fa-spinner fa-pulse' : 'fa-clock'); ?>"></i>
                                         <?php echo $task['status']; ?>
                                     </span>
-                                </td>
+                                </td
                                 <?php if ($can_manage): ?>
                                 <td>
                                     <select class="status-select" data-task-id="<?php echo $task['id']; ?>" data-current-status="<?php echo $task['status']; ?>">
@@ -1037,9 +1004,9 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                                     <button onclick="openEditModal(<?php echo $task['id']; ?>)" style="background: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-top: 5px;">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
-                                </td>
+                                </td
                                 <?php endif; ?>
-                            </tr>
+                            </tr
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
@@ -1269,7 +1236,7 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
             document.getElementById('bulkDeleteModal').classList.remove('show');
         }
         
-        // AJAX untuk update status - TIDAK RELOAD HALAMAN
+        // AJAX untuk update status
         document.querySelectorAll('.status-select').forEach(select => {
             select.addEventListener('change', function() {
                 const taskId = this.dataset.taskId;
@@ -1280,9 +1247,8 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                 
                 const parentTd = this.parentElement;
                 const loadingSpinner = parentTd.querySelector('.status-loading');
-                const statusBadge = parentTd.previousElementSibling.querySelector('.status-badge');
+                const statusBadge = parentTd.previousElementSibling?.querySelector('.status-badge');
                 
-                // Tampilkan loading
                 if (loadingSpinner) loadingSpinner.style.display = 'inline-block';
                 this.disabled = true;
                 
@@ -1298,17 +1264,21 @@ while ($staff = mysqli_fetch_assoc($staff_result)) {
                     if (data.success) {
                         // Update status badge
                         if (statusBadge) {
-                            const oldStatusClass = statusBadge.className;
-                            const newStatusClass = oldStatusClass.replace(/status-\w+/, `status-${newStatus.replace(/ /g, '')}`);
-                            statusBadge.className = newStatusClass;
-                            statusBadge.innerHTML = `<i class="fas ${newStatus === 'Done' ? 'fa-check-circle' : 'fa-spinner fa-pulse'}"></i> ${newStatus}`;
+                            let newClass = '';
+                            if (newStatus === 'Done') {
+                                newClass = 'status-badge status-Done';
+                                statusBadge.innerHTML = `<i class="fas fa-check-circle"></i> Done`;
+                            } else {
+                                newClass = 'status-badge status-InProgress';
+                                statusBadge.innerHTML = `<i class="fas fa-spinner fa-pulse"></i> In Progress`;
+                            }
+                            statusBadge.className = newClass;
                         }
                         this.dataset.currentStatus = newStatus;
                         
-                        // Refresh halaman untuk update urutan dan statistik
                         setTimeout(() => {
                             location.reload();
-                        }, 300);
+                        }, 500);
                     } else {
                         alert('Gagal mengupdate status: ' + data.message);
                         this.value = currentStatus;
